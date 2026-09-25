@@ -9,6 +9,7 @@ import Avatar from '../../components/Avatar';
 import PhotoViewer, { photoTile } from '../../components/PhotoViewer';
 import MomentComposer from '../../components/MomentComposer';
 import { c, font, border, catStyle } from '../../lib/theme';
+import { friendlyError, safe, showError } from '../../lib/errors';
 
 const RADII = [5, 10, 25, 50];
 const GENDERS = [{ v: 'woman', l: 'Woman' }, { v: 'man', l: 'Man' }, { v: 'nonbinary', l: 'Non-binary' }, { v: null, l: 'Prefer not to say' }];
@@ -36,16 +37,22 @@ export default function Profile() {
   const [gender, setGender] = useState<string | null>(null);
   const [verification, setVerification] = useState('none');
   const [verifying, setVerifying] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [{ data: p }, { data: b }, { data: all }, { data: us }, { data: area }, { data: ph }] = await Promise.all([
-      supabase.from('profiles').select('full_name, bio, rating_avg, rating_count, gender, verification_status').eq('id', uid).single(),
-      supabase.from('blocks').select('blocked_id, profiles!blocks_blocked_id_fkey(full_name)').eq('blocker_id', uid),
-      supabase.from('categories').select('id, slug, name, activities(id, slug, name, icon)').order('sort').order('sort', { referencedTable: 'activities' }),
-      supabase.from('user_sports').select('activities(slug)').eq('user_id', uid),
-      supabase.from('alert_areas').select('radius_km, area').eq('user_id', uid).maybeSingle(),
-      supabase.from('user_photos').select('id, kind, path, caption, activities(name, icon)').eq('user_id', uid).order('position').order('id'),
+    const res = await Promise.all([
+      safe(supabase.from('profiles').select('full_name, bio, rating_avg, rating_count, gender, verification_status').eq('id', uid).single()),
+      safe(supabase.from('blocks').select('blocked_id, profiles!blocks_blocked_id_fkey(full_name)').eq('blocker_id', uid)),
+      safe(supabase.from('categories').select('id, slug, name, activities(id, slug, name, icon)').order('sort').order('sort', { referencedTable: 'activities' })),
+      safe(supabase.from('user_sports').select('activities(slug)').eq('user_id', uid)),
+      safe(supabase.from('alert_areas').select('radius_km, area').eq('user_id', uid).maybeSingle()),
+      safe(supabase.from('user_photos').select('id, kind, path, caption, activities(name, icon)').eq('user_id', uid).order('position').order('id')),
     ]);
+    const failed = res.find((r) => r.error);
+    // Don't overwrite the form with blanks when loading fails; keep what's on screen and say why.
+    if (failed) { setLoadError(friendlyError(failed.error)); return; }
+    setLoadError(null);
+    const [{ data: p }, { data: b }, { data: all }, { data: us }, { data: area }, { data: ph }] = res as any[];
     if (p) { setName(p.full_name); setBio(p.bio ?? ''); setRating({ avg: Number(p.rating_avg), n: p.rating_count }); setGender(p.gender); setVerification(p.verification_status); }
     setBlocked(b ?? []);
     setCats(all ?? []);
@@ -65,7 +72,7 @@ export default function Profile() {
       for (const [i, img] of imgs.entries()) await uploadPhoto(uid, img, 'profile', { position: photos.length + i });
       await syncAvatar(uid);
     } catch (e: any) {
-      Alert.alert('Could not add photo', e.message);
+      showError('Could not add photo', e);
     }
     setUploading(false);
     load();
@@ -76,7 +83,7 @@ export default function Profile() {
       const [img] = await pickImages(1);
       if (img) setDraft(img);
     } catch (e: any) {
-      Alert.alert('Could not open photos', e.message);
+      showError('Could not open photos', e);
     }
   };
 
@@ -84,7 +91,7 @@ export default function Profile() {
     Alert.alert('Delete this photo?', undefined, [{ text: 'Keep' }, {
       text: 'Delete', style: 'destructive', onPress: async () => {
         setViewing(null);
-        try { await deletePhoto(p.id, p.path); if (kind === 'profile') await syncAvatar(uid); } catch (e: any) { Alert.alert('Could not delete', e.message); }
+        try { await deletePhoto(p.id, p.path); if (kind === 'profile') await syncAvatar(uid); } catch (e: any) { showError('Could not delete', e); }
         load();
       },
     }]);
@@ -92,43 +99,59 @@ export default function Profile() {
   const toggleSport = async (slug: string) => {
     const next = mine.includes(slug) ? mine.filter((s) => s !== slug) : [...mine, slug];
     setMine(next);
-    const { error } = await supabase.rpc('set_my_sports', { p_slugs: next });
-    if (error) { Alert.alert('Could not save your interests', error.message); load(); }
+    const { error } = await safe(supabase.rpc('set_my_sports', { p_slugs: next }));
+    if (error) { showError('Could not save your interests', error); load(); }
   };
   const changeRadius = async (km: number) => {
     setRadius(km);
-    const { error } = await supabase.rpc('set_alert_radius', { p_km: km });
-    if (error) { Alert.alert('Could not save alert distance', error.message); load(); }
+    const { error } = await safe(supabase.rpc('set_alert_radius', { p_km: km }));
+    if (error) { showError('Could not save alert distance', error); load(); }
   };
 
   const save = async () => {
     setBusy(true);
-    const { error } = await supabase.from('profiles').update({ full_name: name.trim(), bio: bio.trim() }).eq('id', uid);
+    if (name.trim().length < 2) { setBusy(false); return Alert.alert('Add your name', 'Your name needs at least 2 characters.'); }
+    const { error } = await safe(supabase.from('profiles').update({ full_name: name.trim(), bio: bio.trim() }).eq('id', uid));
     setBusy(false);
-    Alert.alert(error ? 'Could not save' : 'Saved ✨', error?.message);
+    if (error) showError('Could not save', error); else Alert.alert('Saved ✨');
   };
   const changeGender = async (g: string | null) => {
     setGender(g);
-    const { error } = await supabase.from('profiles').update({ gender: g }).eq('id', uid);
-    if (error) { Alert.alert('Could not save', error.message); load(); }
+    const { error } = await safe(supabase.from('profiles').update({ gender: g }).eq('id', uid));
+    if (error) { showError('Could not save', error); load(); }
   };
   const verify = async () => {
     setVerifying(true);
     try {
       if (await submitVerificationSelfie(uid)) Alert.alert('Selfie sent ✅', "We'll review it soon. Your ☑️ badge shows up once you're verified.");
     } catch (e: any) {
-      Alert.alert('Could not send selfie', e.message);
+      showError('Could not send selfie', e);
     }
     setVerifying(false);
     load();
   };
-  const unblock = async (id: string) => { await supabase.from('blocks').delete().eq('blocker_id', uid).eq('blocked_id', id); load(); };
+  const unblock = async (id: string) => {
+    const { error } = await safe(supabase.from('blocks').delete().eq('blocker_id', uid).eq('blocked_id', id));
+    if (error) showError('Could not unblock', error);
+    load();
+  };
+  const logOut = async () => {
+    const { error } = await safe(supabase.auth.signOut());
+    // If the server can't be reached, still clear the session on this phone.
+    if (error) await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+  };
 
   const allActivities = cats.flatMap((cat) => cat.activities);
   const mineFirst = [...allActivities.filter((a) => mine.includes(a.slug)), ...allActivities.filter((a) => !mine.includes(a.slug))];
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+      {loadError && (
+        <Card color={c.pink} style={{ marginBottom: 18 }}>
+          <Text style={{ fontFamily: font.bold, color: c.ink }}>😵‍💫 Couldn't load your profile. {loadError}</Text>
+          <View style={{ marginTop: 10 }}><Button small variant="outline" title="↻ Try again" onPress={load} /></View>
+        </Card>
+      )}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
         <Avatar url={photos[0] ? photoUrl(photos[0].path) : null} name={name} size={72} color={c.pink} />
         <View style={{ marginLeft: 16, flex: 1 }}>
@@ -223,12 +246,16 @@ export default function Profile() {
           <Button small variant="outline" title="Unblock" onPress={() => unblock(b.blocked_id)} />
         </View>
       ))}
-      <View style={{ marginTop: 36 }}><Button variant="outline" title="Log out 👋" onPress={() => supabase.auth.signOut()} /></View>
+      <View style={{ marginTop: 36 }}><Button variant="outline" title="Log out 👋" onPress={logOut} /></View>
 
       <PhotoViewer uri={viewing ? photoUrl(viewing.photo.path) : null} onClose={() => setViewing(null)}
         caption={viewing?.kind === 'moment' ? [viewing.photo.activities && `${viewing.photo.activities.icon} ${viewing.photo.activities.name}`, viewing.photo.caption].filter(Boolean).join(' · ') : null}
         actions={!viewing ? [] : viewing.kind === 'profile' && photos[0]?.id !== viewing.photo.id
-          ? [{ title: '⭐ Make main', onPress: async () => { const id = viewing.photo.id; setViewing(null); await makeMain(uid, photos, id); load(); } },
+          ? [{ title: '⭐ Make main', onPress: async () => {
+              const id = viewing.photo.id; setViewing(null);
+              try { await makeMain(uid, photos, id); } catch (e) { showError('Could not change main photo', e); }
+              load();
+            } },
              { title: 'Delete', danger: true, onPress: () => remove(viewing.photo, 'profile') }]
           : [{ title: 'Delete', danger: true, onPress: () => remove(viewing.photo, viewing.kind) }]} />
       <MomentComposer userId={uid} image={draft} activities={mineFirst} onClose={() => setDraft(null)} onSaved={load} />

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { MAX, photoUrl, pickImages, uploadPhoto } from '../lib/photos';
 import PhotoViewer, { photoTile } from './PhotoViewer';
 import { Button, Muted } from './ui';
+import { friendlyError, safe, showError } from '../lib/errors';
 import { c } from '../lib/theme';
 
 // Shared photo album for a plan. Each photo also shows up as a moment on the uploader's profile.
@@ -11,10 +12,12 @@ export default function PlanAlbum({ requestId, activityId, meId }: { requestId: 
   const [photos, setPhotos] = useState<any[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [viewing, setViewing] = useState<any | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const { data } = await supabase.rpc('plan_album', { p_request: requestId });
-    setPhotos(data ?? []);
+    const { data, error } = await safe(supabase.rpc('plan_album', { p_request: requestId }));
+    setError(error ? friendlyError(error) : null);
+    if (!error) setPhotos(data ?? []); else setPhotos((cur) => cur ?? []);
   }, [requestId]);
   useEffect(() => { load(); }, [load]);
 
@@ -25,7 +28,8 @@ export default function PlanAlbum({ requestId, activityId, meId }: { requestId: 
       setBusy(true);
       for (const img of imgs) await uploadPhoto(meId, img, 'moment', { activity_id: activityId, request_id: requestId });
     } catch (e: any) {
-      Alert.alert('Could not add photos', e.message.includes('up to') ? `You can have up to ${MAX.moment} moments. Delete some in Me first.` : e.message);
+      if (String(e?.message ?? '').includes('up to')) Alert.alert('Could not add photos', `You can have up to ${MAX.moment} moments. Delete some in Me first.`);
+      else showError('Could not add photos', e);
     }
     setBusy(false);
     load();
@@ -34,7 +38,8 @@ export default function PlanAlbum({ requestId, activityId, meId }: { requestId: 
   if (!photos) return <ActivityIndicator color={c.primary} />;
   return (
     <View>
-      {photos.length === 0 ? <Muted style={{ marginBottom: 10 }}>No photos yet. Be the first to drop some 📸</Muted> : (
+      {error && <Muted style={{ marginBottom: 10, color: c.danger }} onPress={load}>Couldn't load the album. {error} Tap to retry.</Muted>}
+      {photos.length === 0 ? error ? null : <Muted style={{ marginBottom: 10 }}>No photos yet. Be the first to drop some 📸</Muted> : (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
           {photos.map((p) => (
             <Pressable key={p.id} onPress={() => setViewing(p)} style={[photoTile, { width: '31.5%', aspectRatio: 1 }]}>

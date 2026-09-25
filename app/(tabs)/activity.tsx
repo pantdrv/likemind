@@ -2,17 +2,22 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
-import { Empty, Tag } from '../../components/ui';
+import { Empty, ErrorState, Tag } from '../../components/ui';
+import { friendlyError, safe } from '../../lib/errors';
 import { c, font, border, shadow, pressedOffset, fmtDate, planTitle, tileColor } from '../../lib/theme';
 
 export default function Activity() {
   const router = useRouter();
   const [items, setItems] = useState<any[] | null>(null);
-  useFocusEffect(useCallback(() => {
-    supabase.rpc('my_requests').then(({ data }) => setItems(data ?? []));
-  }, []));
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    const { data, error } = await safe(supabase.rpc('my_requests'));
+    setError(error ? friendlyError(error) : null);
+    if (!error) setItems(data ?? []);
+  }, []);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  if (!items) return <ActivityIndicator style={{ marginTop: 60 }} color={c.primary} />;
+  if (!items) return error ? <ErrorState message={error} onRetry={load} /> : <ActivityIndicator style={{ marginTop: 60 }} color={c.primary} />;
   // Recap: plans that ended in the last week, had other people, and still need photos or kudos from me.
   const recaps = items.filter((r) => r.ended && r.status !== 'cancelled' && r.slots_filled > 0
     && Date.now() - new Date(r.starts_at).getTime() < 7 * 86400_000 && (!r.kudos_given || r.album_count === 0));

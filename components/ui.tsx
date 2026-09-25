@@ -54,7 +54,17 @@ export const Empty = ({ text, emoji = '👀' }: { text: string; emoji?: string }
   </View>
 );
 
-export const Tag = ({ label, color = c.accent }: { label: string; color?: string }) => (
+// Shown when a screen couldn't load. `message` should come from friendlyError().
+export const ErrorState = ({ message, onRetry }: { message: string; onRetry?: () => void }) => (
+  <View style={{ alignItems: 'center', marginTop: 48, paddingHorizontal: 28 }}>
+    <Text style={{ fontSize: 52 }}>😵‍💫</Text>
+    <Text style={{ fontFamily: font.black, fontSize: 18, color: c.ink, marginTop: 10 }}>Couldn't load this</Text>
+    <Muted style={{ textAlign: 'center', marginTop: 6, fontSize: 15, lineHeight: 22 }}>{message}</Muted>
+    {onRetry && <View style={{ marginTop: 18, alignSelf: 'stretch' }}><Button variant="outline" title="↻ Try again" onPress={onRetry} /></View>}
+  </View>
+);
+
+export const Tag =({ label, color = c.accent }: { label: string; color?: string }) => (
   <View style={[s.tag, { backgroundColor: color }]}><Text style={{ fontFamily: font.bold, fontSize: 12, color: c.ink }}>{label}</Text></View>
 );
 

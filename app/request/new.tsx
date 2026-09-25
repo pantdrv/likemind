@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Platform, ScrollView, Switch, Text, TextInput, View, Pressable } from 'react-native';
+import { ActivityIndicator, Alert, Platform, ScrollView, Switch, Text, TextInput, View, Pressable } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import MapView, { Marker } from 'react-native-maps';
@@ -11,6 +11,7 @@ import { Place, mapsLink, placeFromMapsLink, searchPlaces } from '../../lib/plac
 import { Button, Card, Chip, Input, Label, Muted } from '../../components/ui';
 import { planCopy } from '../../lib/planCopy';
 import { c, font, border, shadow, fmtDate } from '../../lib/theme';
+import { openUrl, safe, showError } from '../../lib/errors';
 
 const VIBES = ['Any', 'Chill', 'Casual', 'Competitive'];
 
@@ -67,7 +68,7 @@ export default function NewRequest() {
     setLink(text);
     if (!text.trim()) return;
     setReading(true);
-    const place = await placeFromMapsLink(text);
+    const place = await placeFromMapsLink(text).catch(() => null);
     setReading(false);
     if (!place) return Alert.alert("Couldn't read that link", 'In Google Maps, open the place, tap Share, then Copy link, and paste it here.');
     moveTo(place, place.name);
@@ -77,19 +78,21 @@ export default function NewRequest() {
 
   useEffect(() => {
     if (!session) return;
-    supabase.from('profiles').select('gender').eq('id', session.user.id).single().then(({ data }) => setCanWomenOnly(data?.gender === 'woman'));
+    // These only fine-tune the form (wording, women-only switch, "same as last time"), so failures fall back to defaults.
+    safe(supabase.from('profiles').select('gender').eq('id', session.user.id).single()).then(({ data }) => setCanWomenOnly(data?.gender === 'woman'));
     const crewId = crew ?? null;
-    if (crewId) supabase.from('crews').select('id, name, emoji').eq('id', crewId).maybeSingle().then(({ data }) => setCrewInfo(data));
-    supabase.from('activities').select('name, icon, categories(slug)').eq('slug', slug).maybeSingle()
+    if (crewId) safe(supabase.from('crews').select('id, name, emoji').eq('id', crewId).maybeSingle()).then(({ data }) => setCrewInfo(data));
+    safe(supabase.from('activities').select('name, icon, categories(slug)').eq('slug', slug).maybeSingle())
       .then(({ data }: any) => data && setAct({ name: data.name, icon: data.icon, category: data.categories?.slug }));
     if (from) prefill(from);
-    else supabase.rpc('my_last_plan', { p_slug: slug }).then(({ data }) => setLastPlan(data ?? null));
+    else safe(supabase.rpc('my_last_plan', { p_slug: slug })).then(({ data }) => setLastPlan(data ?? null));
   }, [session, from, crew, slug]);
 
   // Copies an older plan's details; the time moves to the same weekday/time in the future.
   const prefill = async (planId: string) => {
-    const { data: d } = await supabase.rpc('request_detail', { p_id: planId });
-    if (!d) return;
+    const { data: d, error } = await safe(supabase.rpc('request_detail', { p_id: planId }));
+    if (error) return showError("Couldn't copy the last plan", error);
+    if (!d) return Alert.alert("Couldn't copy the last plan", "That plan isn't available anymore. Fill in the details below.");
     setTitle(d.title ?? ''); setVenue(d.venue_name); setSkill(d.skill_level); setSlots(d.slots_total); setNote(d.note ?? '');
     setWomanOnly(!!d.women_only);
     setDetails(d.details ?? {});
@@ -117,17 +120,20 @@ export default function NewRequest() {
     // Without a pin, the host's area (rounded to ~1 km on the server) is still needed so nearby people can find the plan.
     const spot = usePin ? pin : here;
     if (!spot) return Alert.alert('Location needed', 'Allow location access so people nearby can find your plan.');
+    if (when.getTime() <= Date.now()) return Alert.alert('Pick a time in the future', `The ${copy.whenLabel.toLowerCase()} you picked has already passed.`);
     setBusy(true);
-    const { data, error } = await supabase.rpc('create_request', {
+    const { data, error } = await safe(supabase.rpc('create_request', {
       p_slug: slug, p_title: title, p_note: note, p_skill: skill, p_starts: when.toISOString(),
       p_venue: venue.trim(), p_lat: spot.lat, p_lng: spot.lng, p_slots: slots, p_has_pin: usePin,
       p_women_only: womanOnly, p_crew_id: crewInfo?.id ?? null,
       p_details: Object.fromEntries(Object.entries(details).filter(([k, v]) => v && copy.extras.some((x) => x.key === k))),
-    });
-    if (error) { setBusy(false); return Alert.alert('Could not create plan', error.message); }
+    }));
+    if (error || !data) { setBusy(false); return showError('Could not create plan', error); }
     if (from) {
-      const { data: n } = await supabase.rpc('invite_squad', { p_new: data, p_old: from });
-      if (n) Alert.alert('Squad invited 🔁', `${n} ${n === 1 ? 'person' : 'people'} from last time got an invite.`);
+      // The plan exists already, so a failed invite is only a warning.
+      const { data: n, error: invErr } = await safe(supabase.rpc('invite_squad', { p_new: data, p_old: from }));
+      if (invErr) showError('Plan posted, but invites failed', invErr);
+      else if (n) Alert.alert('Squad invited 🔁', `${n} ${n === 1 ? 'person' : 'people'} from last time got an invite.`);
     }
     setBusy(false);
     router.replace(`/request/${data}`);
@@ -182,9 +188,9 @@ export default function NewRequest() {
             <TextInput value={link} onChangeText={setLink} onSubmitEditing={() => applyLink(link)} autoCapitalize="none" autoCorrect={false}
               placeholder="🔗 Or paste a Google Maps link" placeholderTextColor="#9A948C" style={[field, { flex: 1, marginRight: 8 }]} />
             {reading ? <ActivityIndicator color={c.primary} style={{ width: 70 }} />
-              : <Button small variant="outline" title="Paste" onPress={async () => applyLink(await Clipboard.getStringAsync())} />}
+              : <Button small variant="outline" title="Paste" onPress={async () => applyLink(await Clipboard.getStringAsync().catch(() => ''))} />}
           </View>
-          <Pressable onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.trim() || query.trim() || (here ? `${here.lat},${here.lng}` : ''))}`)}>
+          <Pressable onPress={() => openUrl(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.trim() || query.trim() || (here ? `${here.lat},${here.lng}` : ''))}`)}>
             <Muted style={{ fontSize: 13, marginBottom: 10 }}>Find it in <Text style={{ fontFamily: font.black, color: c.primary }}>Google Maps ↗</Text>, tap Share → Copy link, then come back and tap Paste. Or just tap the map.</Muted>
           </Pressable>
         </View>

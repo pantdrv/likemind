@@ -2,16 +2,17 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAlerts } from '../../lib/alerts';
-import { Button, Empty } from '../../components/ui';
+import { Button, Empty, ErrorState } from '../../components/ui';
 import { c, font, border, shadow, pressedOffset, fmtDate } from '../../lib/theme';
 
 export default function Alerts() {
   const router = useRouter();
-  const { items, unread, reload, markRead, markAllRead } = useAlerts();
+  const { items, error, unread, reload, markRead, markAllRead } = useAlerts();
   const [refreshing, setRefreshing] = useState(false);
   useFocusEffect(useCallback(() => { reload(); }, [reload]));
 
   if (!items) return <ActivityIndicator style={{ marginTop: 60 }} color={c.primary} />;
+  if (error && items.length === 0) return <ErrorState message={error} onRetry={reload} />;
   return (
     <FlatList data={items} keyExtractor={(i) => String(i.id)} contentContainerStyle={{ padding: 16 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await reload(); setRefreshing(false); }} />}

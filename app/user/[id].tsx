@@ -5,7 +5,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { userActions } from '../../lib/safety';
 import { photoUrl } from '../../lib/photos';
-import { Button, Card, Empty, H1, H2, Muted, Tag } from '../../components/ui';
+import { Button, Card, Empty, ErrorState, H1, H2, Muted, Tag } from '../../components/ui';
+import { friendlyError, safe, showError } from '../../lib/errors';
 import { kudosLabel } from '../../lib/engage';
 import Avatar from '../../components/Avatar';
 import PhotoViewer, { photoTile } from '../../components/PhotoViewer';
@@ -21,31 +22,35 @@ export default function UserProfile() {
   const [page, setPage] = useState(0);
   const [viewing, setViewing] = useState<{ uri: string; caption?: string } | null>(null);
   const [myPlans, setMyPlans] = useState<any[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Invite them to one of my upcoming open plans.
   const openInvite = async () => {
-    const { data } = await supabase.rpc('my_requests');
+    const { data, error } = await safe(supabase.rpc('my_requests'));
+    if (error) return showError('Could not load your plans', error);
     setMyPlans((data ?? []).filter((r: any) => r.status === 'open' && new Date(r.starts_at) > new Date()));
   };
   const invite = async (planId: string) => {
     setMyPlans(null);
-    const { error } = await supabase.rpc('invite_to_plan', { p_request: planId, p_user: id });
-    Alert.alert(error ? 'Could not invite' : 'Invite sent 🙌', error ? error.message : `${p.name} will get an alert.`);
+    const { error } = await safe(supabase.rpc('invite_to_plan', { p_request: planId, p_user: id }));
+    if (error) showError('Could not invite', error); else Alert.alert('Invite sent 🙌', `${p.name} will get an alert.`);
   };
 
   const load = useCallback(async () => {
-    const { data } = await supabase.rpc('public_profile', { p_user: id });
-    setP(data ?? null);
+    const { data, error } = await safe(supabase.rpc('public_profile', { p_user: id }));
+    setError(error ? friendlyError(error) : null);
+    if (!error) setP(data ?? null);
   }, [id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  if (p === undefined) return <ActivityIndicator style={{ marginTop: 60 }} color={c.primary} />;
+  if (p === undefined) return error ? <ErrorState message={error} onRetry={load} /> : <ActivityIndicator style={{ marginTop: 60 }} color={c.primary} />;
   if (p === null) return <Empty emoji="🫥" text="This profile isn't available." />;
 
   const isMe = id === session?.user.id;
   const slide = width - 40 - 4; // screen padding and the carousel border
+  p.photos ??= []; p.moments ??= []; p.interests ??= [];
   const since = new Date(p.member_since).toLocaleDateString([], { month: 'short', year: 'numeric' });
-  const stats = p.stats ?? { streak: 0, badges: [], kudos: {}, show_up: { checked: 0, due: 0 } };
+  const stats = { streak: 0, badges: [], kudos: {}, ...p.stats, show_up: p.stats?.show_up ?? { checked: 0, due: 0 } };
   const showUp = stats.show_up.due > 0;
 
   return (
@@ -148,7 +153,7 @@ export default function UserProfile() {
       <Modal visible={!!myPlans} transparent animationType="fade" onRequestClose={() => setMyPlans(null)}>
         <Pressable onPress={() => setMyPlans(null)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
           <Pressable style={{ backgroundColor: c.bg, borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: 20, paddingBottom: 40, borderWidth: 2, borderColor: c.ink }}>
-            <H2 style={{ marginTop: 0 }}>Invite {p.name.split(' ')[0]} to…</H2>
+            <H2 style={{ marginTop: 0 }}>Invite {String(p.name ?? '').split(' ')[0]} to…</H2>
             {myPlans?.length === 0 && <Muted style={{ marginBottom: 12 }}>You have no open plans. Start one first, then invite them.</Muted>}
             {myPlans?.map((r) => (
               <Pressable key={r.id} onPress={() => invite(r.id)} style={{ backgroundColor: c.card, borderRadius: 16, padding: 12, marginBottom: 8, ...border }}>

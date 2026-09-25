@@ -2,18 +2,20 @@ import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { c, font, border, shadow } from '../lib/theme';
+import { safe, showError } from '../lib/errors';
 
 export default function RatePeople({ requestId, meId, people }: { requestId: string; meId: string; people: { id: string; name: string }[] }) {
   const [given, setGiven] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    supabase.from('ratings').select('ratee_id, score').eq('request_id', requestId).eq('rater_id', meId)
-      .then(({ data }) => setGiven(Object.fromEntries((data ?? []).map((r) => [r.ratee_id, r.score]))));
+    // If this fails, stars just start empty; rating again is rejected by the server as a duplicate, which showError explains.
+    safe(supabase.from('ratings').select('ratee_id, score').eq('request_id', requestId).eq('rater_id', meId))
+      .then(({ data }) => setGiven(Object.fromEntries((data ?? []).map((r: any) => [r.ratee_id, r.score]))));
   }, [requestId]);
 
   const rate = async (id: string, score: number) => {
-    const { error } = await supabase.rpc('rate_user', { p_request: requestId, p_ratee: id, p_score: score });
-    if (error) Alert.alert('Could not rate', error.message); else setGiven((g) => ({ ...g, [id]: score }));
+    const { error } = await safe(supabase.rpc('rate_user', { p_request: requestId, p_ratee: id, p_score: score }));
+    if (error) showError('Could not rate', error); else setGiven((g) => ({ ...g, [id]: score }));
   };
 
   const others = people.filter((p) => p.id !== meId);

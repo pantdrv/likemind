@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { getCoords } from '../lib/location';
 import { Button, Chip, H1, Input, Label, Muted } from './ui';
 import { c } from '../lib/theme';
+import { safe, showError } from '../lib/errors';
 
 const HOURS = [1, 2, 3, 4];
 
@@ -20,9 +21,9 @@ export default function FreeSheet({ open, onClose, onSaved, activities, defaults
     setBusy(true);
     const pos = await getCoords();
     if (!pos) { setBusy(false); return Alert.alert('Location needed', 'Allow location access so nearby people can see you are free.'); }
-    const { error } = await supabase.rpc('set_free', { p_hours: hours, p_slugs: picked, p_note: note, p_lat: pos.lat, p_lng: pos.lng });
+    const { error } = await safe(supabase.rpc('set_free', { p_hours: hours, p_slugs: picked, p_note: note, p_lat: pos.lat, p_lng: pos.lng }));
     setBusy(false);
-    if (error) return Alert.alert('Could not save', error.message);
+    if (error) return showError('Could not save', error);
     onSaved();
     onClose();
   };

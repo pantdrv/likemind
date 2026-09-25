@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, Modal, ScrollView, Text, TextInput, View, Pressable } from 'react-native';
+import { Alert, Modal, ScrollView, Text, TextInput, View, Pressable } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { Button, H1, Input, Muted } from './ui';
 import { c, font, border, shadow } from '../lib/theme';
+import { friendlyError, safe, showError } from '../lib/errors';
 
 const REACTIONS = ['👍', '🔥', '😂', '❤️', '😮'];
 const QUICK = ['On my way 🏃', 'Running 10 min late ⏰', "I'm here 👋", "Can't make it 😔"];
@@ -17,14 +18,20 @@ export default function Chat({ requestId, crewId, meId }: { requestId?: string; 
   const [text, setText] = useState('');
   const [picking, setPicking] = useState<number | null>(null);
   const [pollOpen, setPollOpen] = useState(false);
-  const list = useRef<FlatList>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  // A plain ScrollView, not a FlatList: this chat sits inside the page's own ScrollView, and nesting a
+  // virtualized list there triggers the "VirtualizedLists should never be nested" error. 200 messages max is fine unvirtualized.
+  const list = useRef<ScrollView>(null);
 
+  // Newest 200, shown oldest first. A failed refresh keeps the messages already on screen.
   const load = useCallback(async () => {
     const cols = rich
       ? 'id, body, kind, poll_options, sender_id, created_at, profiles(full_name), message_reactions(emoji, user_id), poll_votes(option, user_id)'
       : 'id, body, sender_id, created_at, profiles(full_name)';
-    const { data } = await supabase.from(table).select(cols).eq(key, id).order('created_at', { ascending: true }).limit(200);
-    setMsgs(data ?? []);
+    const { data, error } = await safe(supabase.from(table).select(cols).eq(key, id).order('created_at', { ascending: false }).limit(200));
+    setLoadError(error ? friendlyError(error) : null);
+    if (!error) setMsgs(((data ?? []) as any[]).reverse());
   }, [rich, table, key, id]);
 
   useEffect(() => {
@@ -41,36 +48,47 @@ export default function Chat({ requestId, crewId, meId }: { requestId?: string; 
 
   const send = async (raw = text) => {
     const body = raw.trim();
-    if (!body) return;
+    if (!body || sending) return;
+    if (body.length > 1000) return Alert.alert('Message too long', 'Keep it under 1000 characters.');
     if (raw === text) setText('');
-    const { error } = await supabase.from(table).insert({ [key]: id, sender_id: meId, body });
-    if (error) { Alert.alert('Could not send', error.message); if (raw === text) setText(body); } else load();
+    setSending(true);
+    const { error } = await safe(supabase.from(table).insert({ [key]: id, sender_id: meId, body }));
+    setSending(false);
+    if (error) { showError('Could not send', error); if (raw === text) setText(body); } else load();
   };
 
   const react = async (m: any, emoji: string) => {
     setPicking(null);
     const mineAlready = m.message_reactions?.some((r: any) => r.user_id === meId && r.emoji === emoji);
-    if (mineAlready) await supabase.from('message_reactions').delete().match({ message_id: m.id, user_id: meId, emoji });
-    else await supabase.from('message_reactions').insert({ message_id: m.id, user_id: meId, emoji });
+    const { error } = mineAlready
+      ? await safe(supabase.from('message_reactions').delete().match({ message_id: m.id, user_id: meId, emoji }))
+      : await safe(supabase.from('message_reactions').insert({ message_id: m.id, user_id: meId, emoji }));
+    if (error) showError('Could not react', error);
     load();
   };
 
   const vote = async (m: any, option: number) => {
-    await supabase.from('poll_votes').upsert({ message_id: m.id, user_id: meId, option });
+    const { error } = await safe(supabase.from('poll_votes').upsert({ message_id: m.id, user_id: meId, option }));
+    if (error) showError('Could not vote', error);
     load();
   };
 
   return (
     <View style={{ backgroundColor: c.card, borderRadius: 22, ...border, ...shadow(4), padding: 12 }}>
-      <FlatList ref={list} style={{ height: 280 }} data={msgs} keyExtractor={(m) => String(m.id)} nestedScrollEnabled
-        onContentSizeChange={() => list.current?.scrollToEnd({ animated: false })}
-        ListEmptyComponent={<Text style={{ color: c.muted, fontFamily: font.medium, textAlign: 'center', marginTop: 110 }}>No messages yet. Say hi 👋 and lock in the plan.</Text>}
-        renderItem={({ item }) => {
+      <ScrollView ref={list} style={{ height: 280 }} nestedScrollEnabled keyboardShouldPersistTaps="handled"
+        onContentSizeChange={() => list.current?.scrollToEnd({ animated: false })}>
+        {loadError && (
+          <Pressable onPress={load} style={{ backgroundColor: c.pink, borderRadius: 12, borderWidth: 1.5, borderColor: c.ink, padding: 10, marginBottom: 10 }}>
+            <Text style={{ fontFamily: font.bold, color: c.ink, fontSize: 13 }}>😵‍💫 {loadError} Tap to retry.</Text>
+          </Pressable>
+        )}
+        {msgs.length === 0 && !loadError && <Text style={{ color: c.muted, fontFamily: font.medium, textAlign: 'center', marginTop: 110 }}>No messages yet. Say hi 👋 and lock in the plan.</Text>}
+        {msgs.map((item) => {
           const mine = item.sender_id === meId;
           const counts: Record<string, { n: number; me: boolean }> = {};
           for (const r of item.message_reactions ?? []) counts[r.emoji] = { n: (counts[r.emoji]?.n ?? 0) + 1, me: counts[r.emoji]?.me || r.user_id === meId };
           return (
-            <View style={{ alignSelf: item.kind === 'poll' ? 'stretch' : mine ? 'flex-end' : 'flex-start', maxWidth: item.kind === 'poll' ? '100%' : '80%', marginBottom: 10 }}>
+            <View key={item.id} style={{ alignSelf: item.kind === 'poll' ? 'stretch' : mine ? 'flex-end' : 'flex-start', maxWidth: item.kind === 'poll' ? '100%' : '80%', marginBottom: 10 }}>
               {!mine && <Text style={{ fontSize: 11, color: c.muted, fontFamily: font.bold, marginBottom: 2 }}>{item.profiles?.full_name}</Text>}
               {item.kind === 'poll' ? <Poll m={item} meId={meId} onVote={(o) => vote(item, o)} /> : (
                 <Pressable onLongPress={() => rich && setPicking(item.id)} delayLongPress={250}
@@ -95,7 +113,8 @@ export default function Chat({ requestId, crewId, meId }: { requestId?: string; 
               )}
             </View>
           );
-        }} />
+        })}
+      </ScrollView>
       {rich && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ marginTop: 6 }}>
           <Pressable onPress={() => setPollOpen(true)} style={quick}><Text style={quickTxt}>📊 Poll</Text></Pressable>
@@ -105,14 +124,14 @@ export default function Chat({ requestId, crewId, meId }: { requestId?: string; 
       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
         <TextInput value={text} onChangeText={setText} placeholder={rich ? 'Message the squad (long-press to react)' : 'Message the crew'} placeholderTextColor={c.muted}
           style={{ flex: 1, ...border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9, color: c.ink, fontFamily: font.medium }} />
-        <Pressable onPress={() => send()} style={{ marginLeft: 8, backgroundColor: c.accent, borderRadius: 20, ...border, paddingHorizontal: 16, paddingVertical: 10 }}>
+        <Pressable onPress={() => send()} disabled={sending} style={{ opacity: sending ? 0.5 : 1, marginLeft: 8, backgroundColor: c.accent, borderRadius: 20, ...border, paddingHorizontal: 16, paddingVertical: 10 }}>
           <Text style={{ color: c.ink, fontFamily: font.black }}>Send ➤</Text>
         </Pressable>
       </View>
       {rich && <PollComposer open={pollOpen} onClose={() => setPollOpen(false)}
         onCreate={async (question, options) => {
-          const { error } = await supabase.from('messages').insert({ request_id: requestId, sender_id: meId, body: question, kind: 'poll', poll_options: options });
-          if (error) Alert.alert('Could not create poll', error.message); else { setPollOpen(false); load(); }
+          const { error } = await safe(supabase.from('messages').insert({ request_id: requestId, sender_id: meId, body: question, kind: 'poll', poll_options: options }));
+          if (error) showError('Could not create poll', error); else { setPollOpen(false); load(); }
         }} />}
     </View>
   );
@@ -124,7 +143,7 @@ function Poll({ m, meId, onVote }: { m: any; meId: string; onVote: (o: number) =
   return (
     <View style={{ backgroundColor: c.accent, borderRadius: 18, borderWidth: 1.5, borderColor: c.ink, padding: 12 }}>
       <Text style={{ fontFamily: font.black, color: c.ink, fontSize: 15, marginBottom: 8 }}>📊 {m.body}</Text>
-      {(m.poll_options as string[]).map((opt, i) => {
+      {((m.poll_options ?? []) as string[]).map((opt, i) => {
         const n = votes.filter((v) => v.option === i).length;
         const pct = votes.length ? n / votes.length : 0;
         return (

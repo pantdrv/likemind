@@ -6,7 +6,7 @@ import { useAuth } from '../../lib/auth';
 import { userActions } from '../../lib/safety';
 import { checkIn, sharePlan } from '../../lib/engage';
 import { detailTags } from '../../lib/planCopy';
-import { Button, Card, Empty, H1, H2, Muted, Tag } from '../../components/ui';
+import { Button, Card, Empty, ErrorState, H1, H2, Muted, Tag } from '../../components/ui';
 import Chat from '../../components/Chat';
 import RatePeople from '../../components/RatePeople';
 import PlanMap from '../../components/PlanMap';
@@ -14,6 +14,7 @@ import Avatar from '../../components/Avatar';
 import KudosPanel from '../../components/KudosPanel';
 import PlanAlbum from '../../components/PlanAlbum';
 import { c, font, border, fmtDate, planTitle } from '../../lib/theme';
+import { friendlyError, safe, showError } from '../../lib/errors';
 
 export default function RequestDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -22,25 +23,28 @@ export default function RequestDetail() {
   const router = useRouter();
   const [d, setD] = useState<any | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // A failed refresh keeps the plan that's already on screen.
   const load = useCallback(async () => {
-    const { data, error } = await supabase.rpc('request_detail', { p_id: id });
-    if (error) Alert.alert('Could not load', error.message);
-    setD(data ?? null);
+    const { data, error } = await safe(supabase.rpc('request_detail', { p_id: id }));
+    setError(error ? friendlyError(error) : null);
+    if (!error) setD(data ?? null);
   }, [id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const act = async (fn: string, okMsg?: string) => {
     setBusy(true);
-    const { error } = await supabase.rpc(fn, { p_request: id });
+    const { error } = await safe(supabase.rpc(fn, { p_request: id }));
     setBusy(false);
-    if (error) Alert.alert('Something went wrong', error.message); else if (okMsg) Alert.alert(okMsg);
+    if (error) showError('Something went wrong', error); else if (okMsg) Alert.alert(okMsg);
     load();
   };
 
-  if (d === undefined) return <ActivityIndicator style={{ marginTop: 60 }} color={c.primary} />;
+  if (d === undefined) return error ? <ErrorState message={error} onRetry={load} /> : <ActivityIndicator style={{ marginTop: 60 }} color={c.primary} />;
   if (d === null) return <Empty emoji="🫥" text="This plan isn't available anymore." />;
 
+  d.participants ??= []; d.my_kudos ??= [];
   const now = Date.now();
   const start = new Date(d.starts_at).getTime();
   const started = start <= now;

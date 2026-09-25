@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { Button, Chip, H1, Input, Label, Muted } from '../../components/ui';
 import GoogleButton from '../../components/GoogleButton';
 import { c, font, catStyle } from '../../lib/theme';
+import { safe, showError } from '../../lib/errors';
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -15,19 +16,21 @@ export default function Register() {
   const [picked, setPicked] = useState<string[]>([]);
 
   useEffect(() => {
-    supabase.from('categories').select('id, slug, name, activities(slug, name, icon)').order('sort').order('sort', { referencedTable: 'activities' })
+    // Optional step: if interests can't load, sign-up still works and they can be picked later in Me.
+    safe(supabase.from('categories').select('id, slug, name, activities(slug, name, icon)').order('sort').order('sort', { referencedTable: 'activities' }))
       .then(({ data }) => setCats(data ?? []));
   }, []);
   const toggle = (slug: string) => setPicked((p) => (p.includes(slug) ? p.filter((s) => s !== slug) : [...p, slug]));
 
   const submit = async () => {
     if (!name.trim() || !email.trim() || password.length < 6) return Alert.alert('Check your details', 'Enter your name, an email and a password of at least 6 characters.');
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return Alert.alert('Check your email', "That email address doesn't look right.");
     setBusy(true);
     // The signup trigger saves `sports` into user_sports.
-    const { data, error } = await supabase.auth.signUp({ email: email.trim(), password, options: { data: { full_name: name.trim(), sports: picked } } });
+    const { data, error } = await safe(supabase.auth.signUp({ email: email.trim(), password, options: { data: { full_name: name.trim(), sports: picked } } }));
     setBusy(false);
-    if (error) return Alert.alert('Could not register', error.message);
-    if (!data.session) Alert.alert('Confirm your email', 'We sent you a link. Confirm your email, then log in.');
+    if (error) return showError('Could not register', error);
+    if (!data?.session) Alert.alert('Confirm your email', 'We sent you a link. Confirm your email, then log in.');
   };
 
   return (

@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { Button, Input, Muted } from '../../components/ui';
 import GoogleButton from '../../components/GoogleButton';
 import { c, font, border, shadow } from '../../lib/theme';
+import { safe, showError } from '../../lib/errors';
 
 const STICKERS = [
   { e: '🏸', bg: c.lime, rot: '-10deg' },
@@ -19,10 +20,11 @@ export default function Login() {
 
   const submit = async () => {
     if (!email.trim() || !password) return Alert.alert('Enter your email and password');
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return Alert.alert('Check your email', "That email address doesn't look right.");
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    const { error } = await safe(supabase.auth.signInWithPassword({ email: email.trim(), password }));
     setBusy(false);
-    if (error) Alert.alert('Could not log in', error.message);
+    if (error) showError('Could not log in', error);
   };
 
   return (

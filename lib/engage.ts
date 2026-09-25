@@ -3,6 +3,7 @@ import * as Linking from 'expo-linking';
 import { supabase } from './supabase';
 import { getCoords } from './location';
 import { fmtDate, planTitle } from './theme';
+import { safe, showError } from './errors';
 
 export const KUDOS = [
   { tag: 'mvp', label: '🏆 MVP' },
@@ -27,18 +28,18 @@ export async function sharePlan(d: { id: string; title?: string | null; activity
   const lines = [`${d.activity_icon} ${planTitle(d)}`, `🗓 ${fmtDate(d.starts_at)}`, `📍 ${d.venue_name}`];
   if (left > 0) lines.push(`🙋 ${left} ${left === 1 ? 'spot' : 'spots'} left`);
   lines.push('', `Join on Playmate 👉 ${shareLink(`/request/${d.id}`)}`);
-  await Share.share({ message: lines.join('\n') });
+  await Share.share({ message: lines.join('\n') }).catch(() => {});
 }
 
 export async function shareCrew(c: { name: string; emoji: string; code: string }) {
-  await Share.share({ message: `${c.emoji} Join my crew "${c.name}" on Playmate!\nCode: ${c.code}\n👉 ${shareLink(`/crews?code=${c.code}`)}` });
+  await Share.share({ message: `${c.emoji} Join my crew "${c.name}" on Playmate!\nCode: ${c.code}\n👉 ${shareLink(`/crews?code=${c.code}`)}` }).catch(() => {});
 }
 
 export async function checkIn(requestId: string) {
   const pos = await getCoords();
   if (!pos) return Alert.alert('Location needed', 'Allow location access so we can check you in at the spot.');
-  const { error } = await supabase.rpc('check_in', { p_request: requestId, p_lat: pos.lat, p_lng: pos.lng });
-  if (error) Alert.alert("Couldn't check in", error.message);
+  const { error } = await safe(supabase.rpc('check_in', { p_request: requestId, p_lat: pos.lat, p_lng: pos.lng }));
+  if (error) showError("Couldn't check in", error);
   else Alert.alert('Checked in ✅', 'Nice, you showed up. That counts towards your show-up score.');
 }
 

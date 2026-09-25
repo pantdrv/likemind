@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
-import { Button, Chip, Empty, H1, Input, Label, Muted } from '../../components/ui';
+import { Button, Chip, Empty, ErrorState, H1, Input, Label, Muted } from '../../components/ui';
 import { c, font, border, shadow, pressedOffset, tileColor, fmtDate } from '../../lib/theme';
+import { friendlyError, safe, showError } from '../../lib/errors';
 
 const EMOJIS = ['👯', '🏸', '⚽', '🏏', '🎮', '🛍️', '🔥', '🦈', '🐐', '🌙'];
 
@@ -15,10 +16,12 @@ export default function Crews() {
   const [code, setCode] = useState('');
   const [joining, setJoining] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const { data } = await supabase.rpc('my_crews');
-    setCrews(data ?? []);
+    const { data, error } = await safe(supabase.rpc('my_crews'));
+    setError(error ? friendlyError(error) : null);
+    if (!error) setCrews(data ?? []);
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
   useEffect(() => { if (params.code) setCode(String(params.code)); }, [params.code]);
@@ -26,14 +29,14 @@ export default function Crews() {
   const join = async () => {
     if (code.trim().length < 4) return Alert.alert('Enter the crew code', 'Ask a crew member to share it with you.');
     setJoining(true);
-    const { data, error } = await supabase.rpc('join_crew', { p_code: code });
+    const { data, error } = await safe(supabase.rpc('join_crew', { p_code: code.trim() }));
     setJoining(false);
-    if (error) return Alert.alert('Could not join', error.message);
+    if (error) return showError('Could not join', error);
     setCode('');
     router.push(`/crew/${data}`);
   };
 
-  if (!crews) return <ActivityIndicator style={{ marginTop: 60 }} color={c.primary} />;
+  if (!crews) return error ? <ErrorState message={error} onRetry={load} /> : <ActivityIndicator style={{ marginTop: 60 }} color={c.primary} />;
   return (
     <>
       <FlatList data={crews} keyExtractor={(x) => x.id} contentContainerStyle={{ padding: 16 }}
@@ -74,15 +77,21 @@ function NewCrew({ open, onClose, onCreated }: { open: boolean; onClose: () => v
   const [slug, setSlug] = useState<string | null>(null);
   const [acts, setActs] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (open) supabase.from('activities').select('slug, name, icon, categories(sort)').order('sort').then(({ data }) => setActs((data ?? []).sort((x: any, y: any) => (x.categories?.sort ?? 0) - (y.categories?.sort ?? 0)))); }, [open]);
+  const [actsError, setActsError] = useState<string | null>(null);
+  const loadActs = useCallback(async () => {
+    const { data, error } = await safe(supabase.from('activities').select('slug, name, icon, categories(sort)').order('sort'));
+    setActsError(error ? friendlyError(error) : null);
+    if (!error) setActs((data ?? []).sort((x: any, y: any) => (x.categories?.sort ?? 0) - (y.categories?.sort ?? 0)));
+  }, []);
+  useEffect(() => { if (open) loadActs(); }, [open, loadActs]);
 
   const create = async () => {
     if (name.trim().length < 2) return Alert.alert('Give your crew a name');
     if (!slug) return Alert.alert('Pick what the crew does', 'Crew plans use this activity.');
     setBusy(true);
-    const { data, error } = await supabase.rpc('create_crew', { p_name: name, p_emoji: emoji, p_slug: slug });
+    const { data, error } = await safe(supabase.rpc('create_crew', { p_name: name.trim(), p_emoji: emoji, p_slug: slug }));
     setBusy(false);
-    if (error) return Alert.alert('Could not create crew', error.message);
+    if (error) return showError('Could not create crew', error);
     setName(''); setSlug(null);
     onCreated(data);
   };
@@ -98,6 +107,7 @@ function NewCrew({ open, onClose, onCreated }: { open: boolean; onClose: () => v
           {EMOJIS.map((e) => <Chip key={e} label={e} color={c.accent} active={e === emoji} onPress={() => setEmoji(e)} />)}
         </View>
         <Label>What do you do?</Label>
+        {actsError && <View style={{ marginBottom: 12 }}><Muted style={{ marginBottom: 8 }}>Couldn't load activities. {actsError}</Muted><Button small variant="outline" title="↻ Try again" onPress={loadActs} /></View>}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16 }}>
           {acts.map((a) => <Chip key={a.slug} label={`${a.icon} ${a.name}`} active={a.slug === slug} onPress={() => setSlug(a.slug)} />)}
         </View>

@@ -6,8 +6,9 @@ import { getCoords, Coords } from '../../lib/location';
 import { useAuth } from '../../lib/auth';
 import { syncAlertArea } from '../../lib/alerts';
 import RequestCard from '../../components/RequestCard';
-import { Button, Chip, Empty } from '../../components/ui';
+import { Button, Chip, Empty, ErrorState } from '../../components/ui';
 import { c, font, border, catStyle } from '../../lib/theme';
+import { friendlyError, safe, showError } from '../../lib/errors';
 
 const RADII = [5, 10, 25, 50];
 
@@ -22,9 +23,10 @@ export default function SportScreen() {
   const [items, setItems] = useState<any[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.from('activities').select('name, icon, categories(slug)').eq('slug', slug).maybeSingle().then(({ data }) => setAct(data as any));
+    safe(supabase.from('activities').select('name, icon, categories(slug)').eq('slug', slug).maybeSingle()).then(({ data }) => setAct(data as any));
   }, [slug]);
   const color = catStyle(act?.categories?.slug).color;
 
@@ -33,19 +35,19 @@ export default function SportScreen() {
     if (!pos) { pos = await getCoords(); setCoords(pos); }
     if (!pos) { setDenied(true); setItems([]); return; }
     setDenied(false);
-    if (session) syncAlertArea(session.user.id, pos);
-    const { data, error } = await supabase.rpc('nearby_requests', { p_lat: pos.lat, p_lng: pos.lng, p_radius_km: r, p_slug: slug });
-    if (error) Alert.alert('Could not load plans', error.message);
-    setItems(data ?? []);
+    if (session) syncAlertArea(session.user.id, pos).catch(() => {});
+    const { data, error } = await safe(supabase.rpc('nearby_requests', { p_lat: pos.lat, p_lng: pos.lng, p_radius_km: r, p_slug: slug }));
+    setError(error ? friendlyError(error) : null);
+    if (!error) setItems(data ?? []); else setItems((cur) => cur ?? []);
   }, [coords, radius, slug, session]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const accept = async (id: string) => {
     setBusyId(id);
-    const { error } = await supabase.rpc('join_request', { p_request: id });
+    const { error } = await safe(supabase.rpc('join_request', { p_request: id }));
     setBusyId(null);
-    if (error) Alert.alert('Could not join', error.message);
+    if (error) showError('Could not join', error);
     else Alert.alert("You're in! 🎉", 'Open the plan to see the exact spot and chat with the squad.', [{ text: 'Later' }, { text: 'Open', onPress: () => router.push(`/request/${id}`) }]);
     load();
   };
@@ -64,7 +66,7 @@ export default function SportScreen() {
           data={items} keyExtractor={(i) => i.id} contentContainerStyle={{ padding: 16, paddingTop: 20, paddingBottom: 120 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
           ListHeaderComponent={items.length ? <Text style={{ fontFamily: font.black, fontSize: 15, color: c.muted, marginBottom: 12 }}>{items.length} {items.length === 1 ? 'plan' : 'plans'} near you 🔥</Text> : null}
-          ListEmptyComponent={denied
+          ListEmptyComponent={error ? <ErrorState message={error} onRetry={() => load()} /> : denied
             ? <Empty emoji="📍" text="Location is off. Allow location access in Settings to see plans near you." />
             : <Empty emoji="🦗" text={"It's quiet around here… for now.\nBe the main character and start a plan."} />}
           renderItem={({ item }) => (

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { KUDOS } from '../lib/engage';
 import Avatar from './Avatar';
 import { c, font, border, shadow } from '../lib/theme';
+import { safe, showError } from '../lib/errors';
 
 type Person = { id: string; name: string; avatar_url?: string | null };
 
@@ -19,8 +20,8 @@ export default function KudosPanel({ requestId, meId, people, given }:
     const next = new Set(mine);
     if (next.has(k)) next.delete(k); else next.add(k);
     setMine(next);
-    const { error } = await supabase.rpc('toggle_kudos', { p_request: requestId, p_receiver: receiver, p_tag: tag });
-    if (error) { Alert.alert('Could not save kudos', error.message); setMine(mine); }
+    const { error } = await safe(supabase.rpc('toggle_kudos', { p_request: requestId, p_receiver: receiver, p_tag: tag }));
+    if (error) { showError('Could not save kudos', error); setMine(mine); }
   };
 
   return (

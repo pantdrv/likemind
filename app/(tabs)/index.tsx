@@ -6,7 +6,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { getCoords, Coords } from '../../lib/location';
 import { Week } from '../../lib/engage';
-import { Button, H1, H2, Muted } from '../../components/ui';
+import { ErrorState, H1, H2, Muted } from '../../components/ui';
+import { friendlyError, safe, showError } from '../../lib/errors';
 import Avatar from '../../components/Avatar';
 import FreeSheet from '../../components/FreeSheet';
 import { c, font, border, shadow, pressedOffset, catStyle, tileColor, fmtDate, planTitle } from '../../lib/theme';
@@ -28,15 +29,19 @@ export default function Home() {
   const [interests, setInterests] = useState<string[]>([]);
   const [freeOpen, setFreeOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [{ data: cs }, { data: wk }, { data: rg }, { data: av }, { data: us }] = await Promise.all([
-      supabase.from('categories').select('id, slug, name, activities(id, slug, name, icon)').order('sort').order('sort', { referencedTable: 'activities' }),
-      supabase.rpc('my_week'),
-      supabase.rpc('my_regulars'),
-      supabase.from('availability').select('until').eq('user_id', uid).gt('until', new Date().toISOString()).maybeSingle(),
-      supabase.from('user_sports').select('activities(slug)').eq('user_id', uid),
+    const [{ data: cs, error: csErr }, { data: wk }, { data: rg }, { data: av }, { data: us }] = await Promise.all([
+      safe(supabase.from('categories').select('id, slug, name, activities(id, slug, name, icon)').order('sort').order('sort', { referencedTable: 'activities' })),
+      safe(supabase.rpc('my_week')),
+      safe(supabase.rpc('my_regulars')),
+      safe(supabase.from('availability').select('until').eq('user_id', uid).gt('until', new Date().toISOString()).maybeSingle()),
+      safe(supabase.from('user_sports').select('activities(slug)').eq('user_id', uid)),
     ]);
+    // Categories are the one thing home can't work without; the other sections just stay hidden if they fail.
+    if (csErr) { setError(friendlyError(csErr)); return; }
+    setError(null);
     setCats(cs ?? []);
     setSel((s) => s ?? cs?.[0]?.slug ?? null);
     setWeek(wk);
@@ -48,9 +53,9 @@ export default function Home() {
     if (!p) return;
     setPos(p);
     const [{ data: fd }, { data: ev }, { data: fr }] = await Promise.all([
-      supabase.rpc('nearby_requests', { p_lat: p.lat, p_lng: p.lng, p_radius_km: 25, p_interests_only: true }),
-      supabase.rpc('nearby_requests', { p_lat: p.lat, p_lng: p.lng, p_radius_km: 50 }),
-      supabase.rpc('free_nearby', { p_lat: p.lat, p_lng: p.lng, p_radius_km: 15 }),
+      safe(supabase.rpc('nearby_requests', { p_lat: p.lat, p_lng: p.lng, p_radius_km: 25, p_interests_only: true })),
+      safe(supabase.rpc('nearby_requests', { p_lat: p.lat, p_lng: p.lng, p_radius_km: 50 })),
+      safe(supabase.rpc('free_nearby', { p_lat: p.lat, p_lng: p.lng, p_radius_km: 15 })),
     ]);
     setFeed((fd ?? []).filter((r: any) => !r.is_host).slice(0, 12));
     setEvents((ev ?? []).filter((r: any) => r.featured_label));
@@ -58,7 +63,11 @@ export default function Home() {
   }, [uid, pos]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const stopFree = async () => { await supabase.rpc('clear_free'); load(); };
+  const stopFree = async () => {
+    const { error } = await safe(supabase.rpc('clear_free'));
+    if (error) showError('Could not update', error);
+    load();
+  };
 
   const first = String(session?.user.user_metadata?.full_name ?? '').split(' ')[0];
   const cat = cats?.find((x) => x.slug === sel);
@@ -133,7 +142,8 @@ export default function Home() {
         )}
 
         <H2>Start something</H2>
-        {!cats ? <ActivityIndicator style={{ marginTop: 20 }} color={c.primary} /> : (
+        {error && !cats?.length ? <ErrorState message={error} onRetry={load} />
+          : !cats ? <ActivityIndicator style={{ marginTop: 20 }} color={c.primary} /> : (
           <>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 6 }}>
               {cats.map((x) => {

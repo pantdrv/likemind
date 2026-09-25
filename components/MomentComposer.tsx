@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { uploadPhoto } from '../lib/photos';
 import { Button, Chip, H1, Input, Label, Muted } from './ui';
 import { c, border, shadow } from '../lib/theme';
+import { showError } from '../lib/errors';
 
 type Img = { uri: string; width: number; height: number };
 
@@ -23,7 +24,7 @@ export default function MomentComposer({ userId, image, activities, onClose, onS
       close();
       onSaved();
     } catch (e: any) {
-      Alert.alert('Could not upload', e.message);
+      showError('Could not upload', e);
     }
     setBusy(false);
   };

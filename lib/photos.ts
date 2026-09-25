@@ -30,27 +30,32 @@ export async function uploadPhoto(userId: string, img: { uri: string; width: num
   const up = await supabase.storage.from(BUCKET).upload(path, body, { contentType: 'image/jpeg' });
   if (up.error) throw up.error;
   const { error } = await supabase.from('user_photos').insert({ user_id: userId, kind, path, ...extra });
-  if (error) { await supabase.storage.from(BUCKET).remove([path]); throw error; }
+  if (error) { await supabase.storage.from(BUCKET).remove([path]).catch(() => {}); throw error; }
   return path;
 }
 
 export async function deletePhoto(id: number, path: string) {
   const { error } = await supabase.from('user_photos').delete().eq('id', id);
   if (error) throw error;
-  await supabase.storage.from(BUCKET).remove([path]);
+  // The row is gone, so the photo no longer shows; a leftover file is harmless if this fails.
+  await supabase.storage.from(BUCKET).remove([path]).catch(() => {});
 }
 
 // Keeps profiles.avatar_url pointing at the main (first) profile photo.
 export async function syncAvatar(userId: string) {
-  const { data } = await supabase.from('user_photos').select('path').eq('user_id', userId).eq('kind', 'profile')
+  const { data, error } = await supabase.from('user_photos').select('path').eq('user_id', userId).eq('kind', 'profile')
     .order('position').order('id').limit(1).maybeSingle();
-  await supabase.from('profiles').update({ avatar_url: data ? photoUrl(data.path) : null }).eq('id', userId);
+  if (error) throw error;
+  const up = await supabase.from('profiles').update({ avatar_url: data ? photoUrl(data.path) : null }).eq('id', userId);
+  if (up.error) throw up.error;
 }
 
 // Moves one profile photo to the front (position 0) and renumbers the rest.
 export async function makeMain(userId: string, photos: { id: number }[], id: number) {
   const order = [id, ...photos.map((p) => p.id).filter((x) => x !== id)];
-  await Promise.all(order.map((pid, i) => supabase.from('user_photos').update({ position: i }).eq('id', pid)));
+  const results = await Promise.all(order.map((pid, i) => supabase.from('user_photos').update({ position: i }).eq('id', pid)));
+  const failed = results.find((r) => r.error);
+  if (failed) throw failed.error;
   await syncAvatar(userId);
 }
 
