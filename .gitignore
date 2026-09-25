@@ -1,0 +1,9 @@
+node_modules/
+.expo/
+.env
+dist/
+*.log
+ios/
+android/
+.DS_Store
+supabase/.temp/

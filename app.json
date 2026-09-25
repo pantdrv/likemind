@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Playmate",
+    "slug": "playmate",
+    "version": "0.1.0",
+    "scheme": "playmate",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "com.yourcompany.playmate",
+      "supportsTablet": false,
+      "config": {
+        "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_KEY"
+      }
+    },
+    "android": {
+      "package": "com.yourcompany.playmate",
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_ANDROID_GOOGLE_MAPS_KEY"
+        }
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Playmate uses your location to find players and games near you. Others only see an approximate distance."
+        }
+      ],
+      "expo-notifications",
+      "@react-native-community/datetimepicker",
+      "expo-status-bar",
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Playmate uses your photos so you can add profile pictures and moments from your plans.",
+          "cameraPermission": "Playmate uses the camera for your verification selfie.",
+          "microphonePermission": false
+        }
+      ]
+    ]
+  }
+}
