@@ -5,7 +5,7 @@
     "version": "0.1.0",
     "scheme": "playmate",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "ios": {
       "bundleIdentifier": "com.yourcompany.playmate",
       "supportsTablet": false,
@@ -42,6 +42,7 @@
           "microphonePermission": false
         }
       ]
-    ]
+    ],
+    "backgroundColor": "#0E0E10"
   }
 }

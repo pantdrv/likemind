@@ -169,7 +169,7 @@ export default function NewRequest() {
           <Text style={{ fontFamily: font.black, color: c.ink, fontSize: 15 }}>📍 Add exact spot on map</Text>
           <Muted style={{ fontSize: 13 }}>Optional. Players into this activity and anyone who joins can see it, with a Google Maps link.</Muted>
         </View>
-        <Switch value={usePin} onValueChange={setUsePin} trackColor={{ true: c.primary, false: '#D9D2C7' }} thumbColor={c.card} />
+        <Switch value={usePin} onValueChange={setUsePin} trackColor={{ true: c.primary, false: c.line }} thumbColor="#fff" />
       </View>
       {usePin && (
         <View style={{ marginBottom: 10 }}>
@@ -180,7 +180,7 @@ export default function NewRequest() {
           </View>
           {results?.map((r, i) => (
             <Pressable key={i} onPress={() => { moveTo(r, r.label.split(',')[0]); setResults(null); }}
-              style={{ backgroundColor: c.card, borderRadius: 14, borderWidth: 1.5, borderColor: c.ink, padding: 12, marginBottom: 8 }}>
+              style={{ backgroundColor: c.card, borderRadius: 14, borderWidth: 1, borderColor: c.line, padding: 12, marginBottom: 8 }}>
               <Text style={{ fontFamily: font.semi, color: c.ink }}>📍 {r.label}</Text>
             </Pressable>
           ))}
@@ -238,7 +238,7 @@ export default function NewRequest() {
             <Text style={{ fontFamily: font.black, color: c.ink, fontSize: 15 }}>👩 Women only</Text>
             <Muted style={{ fontSize: 13 }}>Only women can see and join this plan.</Muted>
           </View>
-          <Switch value={womanOnly} onValueChange={setWomanOnly} trackColor={{ true: c.pink, false: '#D9D2C7' }} thumbColor={c.card} />
+          <Switch value={womanOnly} onValueChange={setWomanOnly} trackColor={{ true: c.pink, false: c.line }} thumbColor="#fff" />
         </View>
       )}
 

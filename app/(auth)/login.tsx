@@ -32,14 +32,14 @@ export default function Login() {
       <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 84 }} keyboardShouldPersistTaps="handled">
         <View style={{ flexDirection: 'row', marginBottom: 22 }}>
           {STICKERS.map((s) => (
-            <View key={s.e} style={{ width: 58, height: 58, borderRadius: 18, backgroundColor: s.bg, alignItems: 'center', justifyContent: 'center', marginRight: 10, ...border, ...shadow(3), transform: [{ rotate: s.rot }] }}>
+            <View key={s.e} style={{ width: 58, height: 58, borderRadius: 18, backgroundColor: s.bg, alignItems: 'center', justifyContent: 'center', marginRight: 10, ...border, ...shadow(3) }}>
               <Text style={{ fontSize: 28 }}>{s.e}</Text>
             </View>
           ))}
         </View>
         <Text style={{ fontFamily: font.black, fontSize: 52, lineHeight: 54, color: c.ink, letterSpacing: -1.5 }}>playmate<Text style={{ color: c.primary }}>.</Text></Text>
-        <View style={{ alignSelf: 'flex-start', backgroundColor: c.accent, paddingHorizontal: 10, paddingVertical: 4, marginTop: 8, marginBottom: 34, ...border, transform: [{ rotate: '-1.5deg' }] }}>
-          <Text style={{ fontFamily: font.bold, fontSize: 16, color: c.ink }}>find your people. irl. nearby.</Text>
+        <View style={{ alignSelf: 'flex-start', backgroundColor: c.primary, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, marginTop: 8, marginBottom: 34 }}>
+          <Text style={{ fontFamily: font.bold, fontSize: 16, color: c.onNeon }}>find your people. irl. nearby.</Text>
         </View>
         <Input label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address"
           textContentType="emailAddress" autoComplete="email" placeholder="you@example.com" />

@@ -23,7 +23,7 @@ export default function Alerts() {
           style={({ pressed }) => [{ backgroundColor: item.read_at ? c.card : c.accent, borderRadius: 22, padding: 16, marginBottom: 14, ...border },
             pressed ? pressedOffset(3) : shadow(item.read_at ? 2 : 4)]}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {!item.read_at && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.pink, borderWidth: 1.5, borderColor: c.ink, marginRight: 8 }} />}
+            {!item.read_at && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.pink, borderWidth: 1, borderColor: c.line, marginRight: 8 }} />}
             <Text style={{ flex: 1, fontSize: 16, fontFamily: font.black, color: c.ink }}>{item.title}</Text>
           </View>
           <Text style={{ color: c.ink, fontFamily: font.medium, marginTop: 4 }}>{item.body}</Text>
@@ -31,7 +31,7 @@ export default function Alerts() {
             <Text style={{ color: c.ink, opacity: 0.6, fontFamily: font.semi, fontSize: 12 }}>{fmtDate(item.created_at)}</Text>
             {item.actor_id && (
               <Pressable hitSlop={8} onPress={() => { markRead(item.id); router.push(`/user/${item.actor_id}`); }}
-                style={{ backgroundColor: c.card, borderRadius: 999, borderWidth: 1.5, borderColor: c.ink, paddingHorizontal: 10, paddingVertical: 4 }}>
+                style={{ backgroundColor: c.card, borderRadius: 999, borderWidth: 1, borderColor: c.line, paddingHorizontal: 10, paddingVertical: 4 }}>
                 <Text style={{ fontFamily: font.bold, fontSize: 12, color: c.ink }}>👤 view profile</Text>
               </Pressable>
             )}

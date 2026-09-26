@@ -1,16 +1,16 @@
 import { ReactNode, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, TextInputProps, TextProps, View, ViewStyle, StyleSheet, StyleProp } from 'react-native';
-import { c, font, border, shadow, pressedOffset } from '../lib/theme';
+import { c, font, border, pressedOffset, neonOf } from '../lib/theme';
 
 export function Button({ title, onPress, loading, disabled, variant = 'primary', small }:
   { title: string; onPress: () => void; loading?: boolean; disabled?: boolean; variant?: 'primary' | 'outline' | 'danger' | 'pop'; small?: boolean }) {
-  const bg = { primary: c.primary, danger: c.danger, pop: c.accent, outline: c.card }[variant];
-  const color = variant === 'primary' || variant === 'danger' ? '#fff' : c.ink;
-  const off = small ? 2 : 4;
+  // primary = light pill (like "I'm in"), pop = neon lime (the main call to action), outline = dark with a hairline.
+  const bg = { primary: c.ink, danger: c.danger, pop: c.primary, outline: c.card }[variant];
+  const color = variant === 'outline' ? c.ink : variant === 'danger' ? '#fff' : c.onNeon;
   return (
     <Pressable onPress={onPress} disabled={disabled || loading}
-      style={({ pressed }) => [s.btn, { backgroundColor: bg, opacity: disabled ? 0.5 : 1, paddingVertical: small ? 7 : 15 },
-        pressed ? pressedOffset(off) : shadow(off)]}>
+      style={({ pressed }) => [s.btn, { backgroundColor: bg, opacity: disabled ? 0.45 : 1, paddingVertical: small ? 8 : 15 },
+        variant === 'outline' ? border : { borderWidth: 1, borderColor: bg }, pressed && pressedOffset()]}>
       {loading ? <ActivityIndicator color={color} /> : <Text style={{ color, fontFamily: font.black, fontSize: small ? 14 : 17 }}>{title}</Text>}
     </Pressable>
   );
@@ -22,17 +22,19 @@ export function Input(props: TextInputProps & { label?: string }) {
   return (
     <View style={{ marginBottom: 16 }}>
       {label ? <Label>{label}</Label> : null}
-      <TextInput placeholderTextColor="#9A948C" {...rest}
+      <TextInput placeholderTextColor={c.muted} selectionColor={c.primary} keyboardAppearance="dark" {...rest}
         onFocus={(e) => { setFocused(true); rest.onFocus?.(e); }} onBlur={(e) => { setFocused(false); rest.onBlur?.(e); }}
-        style={[s.input, focused && { ...shadow(3), borderColor: c.primary }, style]} />
+        style={[s.input, focused && { borderColor: c.primary }, style]} />
     </View>
   );
 }
 
+// `color` is a tinted surface token (c.lime, c.pink…); the active chip lights up in its neon version.
 export function Chip({ label, active, onPress, color = c.lime }: { label: string; active?: boolean; onPress: () => void; color?: string }) {
+  const lit = neonOf(color);
   return (
-    <Pressable onPress={onPress} style={[s.chip, active && { backgroundColor: color, ...shadow(2) }]}>
-      <Text style={{ color: c.ink, fontFamily: active ? font.bold : font.medium, fontSize: 14 }}>{label}</Text>
+    <Pressable onPress={onPress} style={[s.chip, active && { backgroundColor: lit, borderColor: lit }]}>
+      <Text style={{ color: active ? c.onNeon : c.ink, fontFamily: active ? font.bold : font.medium, fontSize: 14 }}>{label}</Text>
     </Pressable>
   );
 }
@@ -43,7 +45,9 @@ export function Card({ children, color = c.card, style }: { children: ReactNode;
 
 export const H1 = ({ style, ...p }: TextProps) => <Text {...p} style={[{ fontFamily: font.black, fontSize: 34, lineHeight: 38, color: c.ink, letterSpacing: -0.8 }, style]} />;
 export const H2 = ({ style, ...p }: TextProps) => <Text {...p} style={[{ fontFamily: font.black, fontSize: 19, color: c.ink, marginTop: 28, marginBottom: 10 }, style]} />;
-export const Label = ({ style, ...p }: TextProps) => <Text {...p} style={[{ fontFamily: font.bold, fontSize: 13, color: c.ink, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.6 }, style]} />;
+export const Label = ({ style, ...p }: TextProps) => <Text {...p} style={[{ fontFamily: font.bold, fontSize: 12, color: c.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }, style]} />;
+// Small all-caps line above a heading, e.g. "BENGALURU · FRI".
+export const Kicker = ({ style, ...p }: TextProps) => <Text {...p} style={[{ fontFamily: font.bold, fontSize: 11, color: c.muted, textTransform: 'uppercase', letterSpacing: 1.4 }, style]} />;
 export const Body = ({ style, ...p }: TextProps) => <Text {...p} style={[{ fontFamily: font.regular, fontSize: 15, color: c.ink, lineHeight: 21 }, style]} />;
 export const Muted = ({ style, ...p }: TextProps) => <Text {...p} style={[{ fontFamily: font.medium, fontSize: 14, color: c.muted, lineHeight: 20 }, style]} />;
 
@@ -69,9 +73,9 @@ export const Tag =({ label, color = c.accent }: { label: string; color?: string 
 );
 
 const s = StyleSheet.create({
-  btn: { borderRadius: 16, alignItems: 'center', paddingHorizontal: 18, ...border },
-  input: { backgroundColor: c.card, ...border, borderRadius: 16, padding: 14, fontSize: 16, color: c.ink, fontFamily: font.medium },
+  btn: { borderRadius: 999, alignItems: 'center', paddingHorizontal: 18 },
+  input: { backgroundColor: c.card, ...border, borderRadius: 14, padding: 14, fontSize: 16, color: c.ink, fontFamily: font.medium },
   chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, ...border, backgroundColor: c.card, marginRight: 8, marginBottom: 10 },
-  card: { borderRadius: 22, padding: 16, ...border, ...shadow(4) },
+  card: { borderRadius: 20, padding: 16, ...border },
   tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, ...border, alignSelf: 'flex-start' },
 });

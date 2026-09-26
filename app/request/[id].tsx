@@ -13,6 +13,7 @@ import PlanMap from '../../components/PlanMap';
 import Avatar from '../../components/Avatar';
 import KudosPanel from '../../components/KudosPanel';
 import PlanAlbum from '../../components/PlanAlbum';
+import { useCelebrate } from '../../components/Celebrate';
 import { c, font, border, fmtDate, planTitle } from '../../lib/theme';
 import { friendlyError, safe, showError } from '../../lib/errors';
 
@@ -33,11 +34,14 @@ export default function RequestDetail() {
   }, [id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  const [celebration, celebrate] = useCelebrate(() => {});
   const act = async (fn: string, okMsg?: string) => {
     setBusy(true);
     const { error } = await safe(supabase.rpc(fn, { p_request: id }));
     setBusy(false);
-    if (error) showError('Something went wrong', error); else if (okMsg) Alert.alert(okMsg);
+    if (error) showError('Something went wrong', error);
+    else if (fn === 'join_request' && d) celebrate({ id, icon: d.activity_icon, title: planTitle(d), starts_at: d.starts_at, venue_name: d.venue_name });
+    else if (okMsg) Alert.alert(okMsg);
     load();
   };
 
@@ -64,7 +68,7 @@ export default function RequestDetail() {
       }} />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
         <Card color={c.accent} style={{ padding: 20 }}>
-          <View style={{ width: 60, height: 60, borderRadius: 18, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center', ...border, transform: [{ rotate: '-6deg' }] }}>
+          <View style={{ width: 60, height: 60, borderRadius: 18, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center', ...border }}>
             <Text style={{ fontSize: 30 }}>{d.activity_icon}</Text>
           </View>
           <H1 style={{ marginTop: 14, fontSize: 28, lineHeight: 32 }}>{planTitle(d)}</H1>
@@ -120,8 +124,9 @@ export default function RequestDetail() {
           <H2>Rate the squad ⭐</H2>
           <RatePeople requestId={id} meId={me} people={people} />
         </>)}
-        {d.is_member && d.status !== 'cancelled' && (<><H2>Group chat 💬</H2><Chat requestId={id} meId={me} /></>)}
+        {d.is_member && d.status !== 'cancelled' && (<><H2>Group chat 💬</H2><Chat requestId={id} meId={me} activitySlug={d.activity_slug} categorySlug={d.category_slug} /></>)}
       </ScrollView>
+      {celebration}
     </KeyboardAvoidingView>
   );
 }

@@ -28,7 +28,7 @@ export default function RatePeople({ requestId, meId, people }: { requestId: str
           <View style={{ flexDirection: 'row' }}>
             {[1, 2, 3, 4, 5].map((n) => (
               <Pressable key={n} disabled={!!given[p.id]} onPress={() => rate(p.id, n)}>
-                <Text style={{ fontSize: 28, color: n <= (given[p.id] ?? 0) ? c.accent : '#D9D2C7', textShadowColor: c.ink, textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 0 }}>★</Text>
+                <Text style={{ fontSize: 28, color: n <= (given[p.id] ?? 0) ? c.accent : c.line }}>★</Text>
               </Pressable>
             ))}
           </View>

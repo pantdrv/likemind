@@ -27,7 +27,7 @@ export default function KudosPanel({ requestId, meId, people, given }:
   return (
     <View style={{ backgroundColor: c.card, borderRadius: 22, ...border, ...shadow(4), padding: 14 }}>
       {others.map((p, i) => (
-        <View key={p.id} style={{ paddingVertical: 8, borderTopWidth: i ? 1.5 : 0, borderColor: '#E8E1D6' }}>
+        <View key={p.id} style={{ paddingVertical: 8, borderTopWidth: i ? 1.5 : 0, borderColor: c.line }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
             <Avatar url={p.avatar_url} name={p.name} size={30} />
             <Text style={{ marginLeft: 8, fontFamily: font.bold, color: c.ink, fontSize: 15 }}>{p.name}</Text>
@@ -37,7 +37,7 @@ export default function KudosPanel({ requestId, meId, people, given }:
               const on = mine.has(`${p.id}:${k.tag}`);
               return (
                 <Pressable key={k.tag} onPress={() => toggle(p.id, k.tag)}
-                  style={{ borderRadius: 999, borderWidth: 1.5, borderColor: c.ink, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: on ? c.accent : c.bg }}>
+                  style={{ borderRadius: 999, borderWidth: 1, borderColor: c.line, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: on ? c.accent : c.bg }}>
                   <Text style={{ fontFamily: on ? font.black : font.semi, fontSize: 13, color: c.ink }}>{k.label}</Text>
                 </Pressable>
               );

@@ -168,7 +168,7 @@ export default function Profile() {
         {photos.map((p, i) => (
           <Pressable key={p.id} onPress={() => setViewing({ photo: p, kind: 'profile' })} style={[photoTile, { width: '31.5%', aspectRatio: 3 / 4, marginBottom: 10 }]}>
             <Image source={{ uri: photoUrl(p.path) }} style={{ flex: 1 }} />
-            {i === 0 && <View style={{ position: 'absolute', left: 6, top: 6, backgroundColor: c.accent, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1.5, borderColor: c.ink }}>
+            {i === 0 && <View style={{ position: 'absolute', left: 6, top: 6, backgroundColor: c.accent, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: c.line }}>
               <Text style={{ fontFamily: font.black, fontSize: 11, color: c.ink }}>MAIN</Text>
             </View>}
           </Pressable>
@@ -230,7 +230,7 @@ export default function Profile() {
         {moments.map((m) => (
           <Pressable key={m.id} onPress={() => setViewing({ photo: m, kind: 'moment' })} style={[photoTile, { width: '48.5%', aspectRatio: 1, marginBottom: 12 }]}>
             <Image source={{ uri: photoUrl(m.path) }} style={{ flex: 1 }} />
-            {m.activities && <View style={{ position: 'absolute', left: 6, bottom: 6, backgroundColor: c.card, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1.5, borderColor: c.ink }}>
+            {m.activities && <View style={{ position: 'absolute', left: 6, bottom: 6, backgroundColor: c.card, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: c.line }}>
               <Text style={{ fontFamily: font.bold, fontSize: 11, color: c.ink }}>{m.activities.icon} {m.activities.name}</Text>
             </View>}
           </Pressable>

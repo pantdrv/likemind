@@ -77,7 +77,7 @@ export default function UserProfile() {
           {p.photos.length > 1 && (
             <View style={{ position: 'absolute', top: 10, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 5 }}>
               {p.photos.map((ph: any, i: number) => (
-                <View key={ph.id} style={{ width: i === page ? 22 : 8, height: 8, borderRadius: 4, backgroundColor: i === page ? c.accent : 'rgba(255,255,255,0.75)', borderWidth: 1, borderColor: c.ink }} />
+                <View key={ph.id} style={{ width: i === page ? 22 : 8, height: 8, borderRadius: 4, backgroundColor: i === page ? c.accent : 'rgba(255,255,255,0.75)', borderWidth: 1, borderColor: c.line }} />
               ))}
             </View>
           )}
@@ -140,7 +140,7 @@ export default function UserProfile() {
               <Pressable key={m.id} onPress={() => setViewing({ uri: photoUrl(m.path), caption: [tag, m.caption].filter(Boolean).join(' · ') })}
                 style={[photoTile, { width: '48.5%', aspectRatio: 1, marginBottom: 12 }]}>
                 <Image source={{ uri: photoUrl(m.path) }} style={{ flex: 1 }} />
-                {tag && <View style={{ position: 'absolute', left: 6, bottom: 6, backgroundColor: c.card, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1.5, borderColor: c.ink }}>
+                {tag && <View style={{ position: 'absolute', left: 6, bottom: 6, backgroundColor: c.card, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: c.line }}>
                   <Text style={{ fontFamily: font.bold, fontSize: 11, color: c.ink }}>{tag}</Text>
                 </View>}
               </Pressable>
@@ -152,7 +152,7 @@ export default function UserProfile() {
       <PhotoViewer uri={viewing?.uri ?? null} caption={viewing?.caption} onClose={() => setViewing(null)} />
       <Modal visible={!!myPlans} transparent animationType="fade" onRequestClose={() => setMyPlans(null)}>
         <Pressable onPress={() => setMyPlans(null)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
-          <Pressable style={{ backgroundColor: c.bg, borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: 20, paddingBottom: 40, borderWidth: 2, borderColor: c.ink }}>
+          <Pressable style={{ backgroundColor: c.bg, borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: 20, paddingBottom: 40, borderWidth: 1, borderColor: c.line }}>
             <H2 style={{ marginTop: 0 }}>Invite {String(p.name ?? '').split(' ')[0]} to…</H2>
             {myPlans?.length === 0 && <Muted style={{ marginBottom: 12 }}>You have no open plans. Start one first, then invite them.</Muted>}
             {myPlans?.map((r) => (

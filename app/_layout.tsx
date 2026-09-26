@@ -45,7 +45,8 @@ function Gate() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
       <Stack.Screen name="sport/[slug]" options={{ title: 'Nearby' }} />
-      <Stack.Screen name="request/new" options={{ title: 'Start a plan', presentation: 'modal' }} />
+      <Stack.Screen name="start" options={{ title: 'Start a plan', presentation: 'modal' }} />
+      <Stack.Screen name="request/new"options={{ title: 'Start a plan', presentation: 'modal' }} />
       <Stack.Screen name="request/[id]" options={{ title: 'The plan' }} />
       <Stack.Screen name="user/[id]" options={{ title: 'Profile' }} />
       <Stack.Screen name="crew/[id]" options={{ title: 'Crew' }} />
@@ -74,7 +75,7 @@ export default function Root() {
   if (!fontsLoaded) return null;
   return (
     <AuthProvider>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <Gate />
     </AuthProvider>
   );

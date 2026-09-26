@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, RefreshControl, ScrollView, View, Text } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, ScrollView, View, Text } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { getCoords, Coords } from '../../lib/location';
@@ -7,7 +7,8 @@ import { useAuth } from '../../lib/auth';
 import { syncAlertArea } from '../../lib/alerts';
 import RequestCard from '../../components/RequestCard';
 import { Button, Chip, Empty, ErrorState } from '../../components/ui';
-import { c, font, border, catStyle } from '../../lib/theme';
+import { c, font, border, catStyle, planTitle } from '../../lib/theme';
+import { useCelebrate } from '../../components/Celebrate';
 import { friendlyError, safe, showError } from '../../lib/errors';
 
 const RADII = [5, 10, 25, 50];
@@ -43,22 +44,23 @@ export default function SportScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const accept = async (id: string) => {
-    setBusyId(id);
-    const { error } = await safe(supabase.rpc('join_request', { p_request: id }));
+  const [celebration, celebrate] = useCelebrate((id) => router.push(`/request/${id}`));
+  const accept = async (item: any) => {
+    setBusyId(item.id);
+    const { error } = await safe(supabase.rpc('join_request', { p_request: item.id }));
     setBusyId(null);
     if (error) showError('Could not join', error);
-    else Alert.alert("You're in! 🎉", 'Open the plan to see the exact spot and chat with the squad.', [{ text: 'Later' }, { text: 'Open', onPress: () => router.push(`/request/${id}`) }]);
+    else celebrate({ id: item.id, icon: item.activity_icon, title: planTitle(item), starts_at: item.starts_at, venue_name: item.venue_name });
     load();
   };
 
   return (
     <View style={{ flex: 1 }}>
-      <Stack.Screen options={{ title: act ? `${act.icon} ${act.name}` : 'Nearby', headerStyle: { backgroundColor: color } }} />
-      <View style={{ backgroundColor: color, borderBottomWidth: 2, borderColor: c.ink, paddingBottom: 6 }}>
+      <Stack.Screen options={{ title: act ? `${act.icon} ${act.name}` : 'Nearby', headerStyle: { backgroundColor: c.bg } }} />
+      <View style={{ backgroundColor: c.bg, borderBottomWidth: 1, borderColor: c.line, paddingBottom: 6 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, alignItems: 'center' }}>
           <Text style={{ fontFamily: font.bold, color: c.ink, marginRight: 10, marginBottom: 10 }}>within</Text>
-          {RADII.map((r) => <Chip key={r} label={`${r} km`} color={c.accent} active={r === radius} onPress={() => { setRadius(r); load(r); }} />)}
+          {RADII.map((r) => <Chip key={r} label={`${r} km`} color={color} active={r === radius} onPress={() => { setRadius(r); load(r); }} />)}
         </ScrollView>
       </View>
       {!items ? <ActivityIndicator style={{ marginTop: 40 }} color={c.primary} /> : (
@@ -70,10 +72,11 @@ export default function SportScreen() {
             ? <Empty emoji="📍" text="Location is off. Allow location access in Settings to see plans near you." />
             : <Empty emoji="🦗" text={"It's quiet around here… for now.\nBe the main character and start a plan."} />}
           renderItem={({ item }) => (
-            <RequestCard item={item} color={color} busy={busyId === item.id} onPress={() => router.push(`/request/${item.id}`)} onAccept={() => accept(item.id)} />
+            <RequestCard item={item} color={color} busy={busyId === item.id} onPress={() => router.push(`/request/${item.id}`)} onAccept={() => accept(item)} />
           )}
         />
       )}
+      {celebration}
       <View style={{ position: 'absolute', left: 16, right: 16, bottom: 28 }}>
         <Button variant="pop" title="＋ Start a plan" onPress={() => router.push({ pathname: '/request/new', params: { slug } })} />
       </View>

@@ -75,6 +75,22 @@ const ACTIVITY: Record<string, Partial<Copy>> = {
   'nba-2k': { titleLabel: 'Game mode', titlePh: 'e.g. 2v2 park', placeLabel: 'Where are we playing?', placePh: "Gaming café or someone's place", extras: [PS5_SETUP] },
 };
 
+// Chat suggestions ("Not sure what to say? Tap one"), shown with the generic ones in plan chats.
+const QUICK_CATEGORY: Record<string, string[]> = {
+  outdoor: ['Who has the ball/racket? 🎒', 'Splitting the court fee?', 'Which court exactly?'],
+  entertainment: ['Booked yet? 🎟', 'Meet outside or inside?', 'Food before or after? 🍜'],
+  indoor: ['Who is bringing what? 🎲', 'Best of 3?', 'Loser buys chai ☕'],
+};
+const QUICK_ACTIVITY: Record<string, string[]> = {
+  movie: ['Booked seats? 🎟', 'Which row are we in?', 'Popcorn combo? 🍿'],
+  concert: ['Which gate are we meeting at?', 'Got your tickets? 🎟', 'Eating before the show?'],
+  cricket: ['Who has the bat and ball? 🏏', 'Tennis ball or leather?', 'Splitting the turf fee?'],
+  football: ['Bibs or colours? 👕', 'Splitting the turf fee?', 'Studs or flats?'],
+  chess: ['Blitz or rapid? ♟️', 'Bringing a clock?', "Who's bringing a board?"],
+};
+export const quickReplies = (activitySlug?: string, categorySlug?: string) =>
+  QUICK_ACTIVITY[activitySlug ?? ''] ?? QUICK_CATEGORY[categorySlug ?? ''] ?? [];
+
 export function planCopy(activitySlug?: string, categorySlug?: string): Copy {
   return { ...GENERIC, ...(CATEGORY[categorySlug ?? ''] ?? {}), ...(ACTIVITY[activitySlug ?? ''] ?? {}) };
 }

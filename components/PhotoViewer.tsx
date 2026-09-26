@@ -26,4 +26,4 @@ export default function PhotoViewer({ uri, caption, actions = [], onClose }:
   );
 }
 
-export const photoTile = { borderRadius: 16, borderWidth: 2, borderColor: c.ink, overflow: 'hidden' as const, backgroundColor: c.card };
+export const photoTile = { borderRadius: 16, borderWidth: 1, borderColor: c.line, overflow: 'hidden' as const, backgroundColor: c.card };

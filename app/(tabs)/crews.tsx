@@ -3,7 +3,8 @@ import { ActivityIndicator, Alert, FlatList, Modal, Pressable, ScrollView, Text,
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { Button, Chip, Empty, ErrorState, H1, Input, Label, Muted } from '../../components/ui';
-import { c, font, border, shadow, pressedOffset, tileColor, fmtDate } from '../../lib/theme';
+import { c, font, tileColor, neonOf, whenLabel } from '../../lib/theme';
+import { Ionicons } from '@expo/vector-icons';
 import { friendlyError, safe, showError } from '../../lib/errors';
 
 const EMOJIS = ['👯', '🏸', '⚽', '🏏', '🎮', '🛍️', '🔥', '🦈', '🐐', '🌙'];
@@ -52,18 +53,18 @@ export default function Crews() {
           </View>
         }
         ListEmptyComponent={<Empty emoji="👯" text="No crews yet. Start one for your regular squad (Sunday football, FIFA nights…) or join with a code." />}
+        ListHeaderComponentStyle={{ marginBottom: 4 }}
         renderItem={({ item, index }) => (
+          // Numbered list rows ("Paper" design), one per crew.
           <Pressable onPress={() => router.push(`/crew/${item.id}`)}
-            style={({ pressed }) => [{ backgroundColor: tileColor(index + 1), borderRadius: 22, padding: 16, marginBottom: 14, flexDirection: 'row', alignItems: 'center', ...border },
-              pressed ? pressedOffset(3) : shadow(4)]}>
-            <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center', ...border }}>
-              <Text style={{ fontSize: 28 }}>{item.emoji}</Text>
+            style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderTopWidth: index ? 1 : 0, borderColor: c.line }, pressed && { opacity: 0.6 }]}>
+            <Text style={{ fontFamily: font.regular, fontSize: 30, color: neonOf(tileColor(index)), width: 50 }}>{String(index + 1).padStart(2, '0')}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: font.black, fontSize: 17, color: c.ink }}>{item.emoji} {item.name}</Text>
+              <Text style={{ fontFamily: font.medium, color: c.muted, marginTop: 2 }}>{item.activity_icon ?? '✨'} {item.activity_name ?? 'Anything'} · {item.members} {item.members === 1 ? 'member' : 'members'}</Text>
+              <Text style={{ fontFamily: font.bold, color: item.next_plan ? c.primary : c.muted, fontSize: 12, marginTop: 2 }}>{item.next_plan ? `Next: ${whenLabel(item.next_plan)}` : 'No plan yet'}</Text>
             </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={{ fontFamily: font.black, fontSize: 18, color: c.ink }}>{item.name}</Text>
-              <Text style={{ fontFamily: font.semi, color: c.ink, opacity: 0.8 }}>{item.activity_icon ?? '✨'} {item.activity_name ?? 'Anything'} · {item.members} {item.members === 1 ? 'member' : 'members'}</Text>
-              <Text style={{ fontFamily: font.semi, color: c.ink, opacity: 0.8, fontSize: 12 }}>{item.next_plan ? `Next: ${fmtDate(item.next_plan)}` : 'No plan yet'}</Text>
-            </View>
+            <Ionicons name="arrow-forward" size={18} color={c.muted} />
           </Pressable>
         )} />
       <NewCrew open={creating} onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); router.push(`/crew/${id}`); }} />
