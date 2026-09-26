@@ -86,6 +86,10 @@ export default function Chat({ requestId, crewId, meId, activitySlug, categorySl
         )}
         {msgs.length === 0 && !loadError && <Text style={{ color: c.muted, fontFamily: font.medium, textAlign: 'center', marginTop: 110 }}>No messages yet. Say hi 👋 and lock in the plan.</Text>}
         {msgs.map((item) => {
+          // Notices written by the server, e.g. "👋 Aarav can't make it", "🗓 Plan moved to Sat 7 PM".
+          if (item.kind === 'system') return (
+            <Text key={item.id} style={{ alignSelf: 'center', textAlign: 'center', color: c.muted, fontFamily: font.semi, fontSize: 12, backgroundColor: c.raised, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 10, overflow: 'hidden' }}>{item.body}</Text>
+          );
           const mine = item.sender_id === meId;
           const counts: Record<string, { n: number; me: boolean }> = {};
           for (const r of item.message_reactions ?? []) counts[r.emoji] = { n: (counts[r.emoji]?.n ?? 0) + 1, me: counts[r.emoji]?.me || r.user_id === meId };

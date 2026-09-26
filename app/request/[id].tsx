@@ -8,6 +8,7 @@ import { checkIn, sharePlan } from '../../lib/engage';
 import { detailTags } from '../../lib/planCopy';
 import { Button, Card, Empty, ErrorState, H1, H2, Muted, Tag } from '../../components/ui';
 import Chat from '../../components/Chat';
+import PlanChangeSheet, { ChangeMode } from '../../components/PlanChangeSheet';
 import RatePeople from '../../components/RatePeople';
 import PlanMap from '../../components/PlanMap';
 import Avatar from '../../components/Avatar';
@@ -24,6 +25,7 @@ export default function RequestDetail() {
   const router = useRouter();
   const [d, setD] = useState<any | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
+  const [changing, setChanging] = useState<ChangeMode | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // A failed refresh keeps the plan that's already on screen.
@@ -84,6 +86,7 @@ export default function RequestDetail() {
             {d.women_only ? <Tag label="👩 women only" color={c.pink} /> : null}
             {d.crew ? <Tag label={`${d.crew.emoji} ${d.crew.name}`} color={c.lilac} /> : null}
           </View>
+          {d.status === 'cancelled' && d.cancel_reason ? <Text style={{ marginTop: 12, color: c.ink, fontFamily: font.bold }}>💔 Cancelled: {d.cancel_reason}</Text> : null}
           {d.note ? <Text style={{ marginTop: 14, color: c.ink, fontFamily: font.medium, fontSize: 15, lineHeight: 22 }}>“{d.note}”</Text> : null}
         </Card>
 
@@ -108,8 +111,8 @@ export default function RequestDetail() {
         {d.status !== 'cancelled' && <><H2>Where 📍</H2><PlanMap d={d} /></>}
 
         <View style={{ marginTop: 24, gap: 12 }}>
-          {d.is_host ? (d.status !== 'cancelled' && !started && <Button variant="danger" title="Cancel this plan" loading={busy} onPress={() => Alert.alert('Cancel plan?', 'Everyone who joined will lose their spot.', [{ text: 'Keep' }, { text: 'Cancel plan', style: 'destructive', onPress: () => act('cancel_request') }])} />)
-            : d.is_member ? (!started && <Button variant="outline" title="Leave this plan" loading={busy} onPress={() => act('leave_request')} />)
+          {d.is_host ? (d.status !== 'cancelled' && !started && <Button variant="outline" title="✕ Cancel or move this plan" onPress={() => setChanging('cancel')} />)
+            : d.is_member ? (!started && d.status !== 'cancelled' && <Button variant="outline" title="🙃 Can't make it?" onPress={() => setChanging('leave')} />)
             : d.status === 'open' && !started && <Button variant="pop" title="I'm in 🙌" loading={busy} onPress={() => act('join_request', "You're in! 🎉")} />}
           {d.is_member && started && d.status !== 'cancelled' && (
             <Button title="🔁 Run it back (same squad, next week)" onPress={() => router.push({ pathname: '/request/new', params: { slug: d.activity_slug, from: id } })} />
@@ -127,6 +130,7 @@ export default function RequestDetail() {
         {d.is_member && d.status !== 'cancelled' && (<><H2>Group chat 💬</H2><Chat requestId={id} meId={me} activitySlug={d.activity_slug} categorySlug={d.category_slug} /></>)}
       </ScrollView>
       {celebration}
+      <PlanChangeSheet plan={changing ? d : null} mode={changing ?? 'leave'} onClose={() => setChanging(null)} onDone={load} />
     </KeyboardAvoidingView>
   );
 }
