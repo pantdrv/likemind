@@ -62,7 +62,7 @@ export default function CrewPage() {
           <Pressable key={p.id} onPress={() => router.push(`/request/${p.id}`)} style={{ backgroundColor: c.card, borderRadius: 18, padding: 14, marginBottom: 10, ...border, ...shadow(3) }}>
             <Text style={{ fontFamily: font.black, color: c.ink, fontSize: 16 }}>{p.activity_icon} {planTitle(p)}</Text>
             <Muted>{fmtDate(p.starts_at)} · 📍 {p.venue_name}</Muted>
-            <Text style={{ fontFamily: font.bold, color: c.primary, marginTop: 2 }}>{p.slots_filled}/{p.slots_total} joined</Text>
+            <Text style={{ fontFamily: font.bold, color: c.primary, marginTop: 2 }}>{p.open_ended ? `${p.slots_filled} going · open to anyone` : `${p.slots_filled}/${p.slots_total} joined`}</Text>
           </Pressable>
         ))}
         {crew.activity && <Button variant="pop" title="＋ Start a crew plan" onPress={() => router.push({ pathname: '/request/new', params: { slug: crew.activity.slug, crew: id } })} />}

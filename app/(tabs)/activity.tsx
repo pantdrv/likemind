@@ -106,7 +106,7 @@ export default function Activity() {
             {item.crew_name ? <Text style={{ color: c.ink, fontFamily: font.bold, marginTop: 8 }}>👯 {item.crew_name}</Text> : null}
             <Text style={{ color: c.muted, fontFamily: font.medium, marginTop: 10 }}>📍 {item.venue_name}</Text>
             <Text style={{ color: cancelled ? c.danger : c.primary, fontFamily: font.bold, marginTop: 4 }}>
-              {cancelled ? 'Cancelled 💔' : view === 'history' ? `${item.slots_filled} ${item.slots_filled === 1 ? 'person' : 'people'} joined` : `${item.slots_filled}/${item.slots_total} joined`}
+              {cancelled ? 'Cancelled 💔' : view === 'history' ? `${item.slots_filled} ${item.slots_filled === 1 ? 'person' : 'people'} joined` : item.open_ended ? `${item.slots_filled} going · open to anyone` : `${item.slots_filled}/${item.slots_total} joined`}
             </Text>
             {cancelled && item.cancel_reason ? <Text style={{ color: c.muted, fontFamily: font.medium, marginTop: 2 }}>Reason: {item.cancel_reason}</Text> : null}
             {canChange && (

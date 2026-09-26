@@ -44,6 +44,15 @@ export default function NewRequest() {
   const [act, setAct] = useState<{ name: string; icon: string; category: string } | null>(null);
   const [details, setDetails] = useState<Record<string, string>>({});
   const copy = planCopy(slug, act?.category);
+  const [open, setOpen] = useState(false);
+  // Once the host changes the headcount (or a plan is copied), stop applying the activity's defaults.
+  const headcountTouched = useRef(false);
+  useEffect(() => {
+    if (headcountTouched.current) return;
+    setSlots(copy.slots);
+    setOpen(copy.open === 'default');
+  }, [copy.slots, copy.open]);
+  const canOpen = copy.open !== 'never';
 
   const moveTo = (p: Coords, name?: string) => {
     setPin(p);
@@ -93,7 +102,10 @@ export default function NewRequest() {
     const { data: d, error } = await safe(supabase.rpc('request_detail', { p_id: planId }));
     if (error) return showError("Couldn't copy the last plan", error);
     if (!d) return Alert.alert("Couldn't copy the last plan", "That plan isn't available anymore. Fill in the details below.");
-    setTitle(d.title ?? ''); setVenue(d.venue_name); setSkill(d.skill_level); setSlots(d.slots_total); setNote(d.note ?? '');
+    setTitle(d.title ?? ''); setVenue(d.venue_name); setSkill(d.skill_level); setNote(d.note ?? '');
+    headcountTouched.current = true;
+    setOpen(!!d.open_ended);
+    setSlots(d.open_ended ? copy.slots : Math.min(d.slots_total, 50));
     setWomanOnly(!!d.women_only);
     setDetails(d.details ?? {});
     if (d.crew && !crew) setCrewInfo(d.crew);
@@ -127,6 +139,7 @@ export default function NewRequest() {
       p_venue: venue.trim(), p_lat: spot.lat, p_lng: spot.lng, p_slots: slots, p_has_pin: usePin,
       p_women_only: womanOnly, p_crew_id: crewInfo?.id ?? null,
       p_details: Object.fromEntries(Object.entries(details).filter(([k, v]) => v && copy.extras.some((x) => x.key === k))),
+      p_open_ended: open && canOpen,
     }));
     if (error || !data) { setBusy(false); return showError('Could not create plan', error); }
     if (from) {
@@ -207,11 +220,24 @@ export default function NewRequest() {
       {usePin && pin && <Muted numberOfLines={1} style={{ fontSize: 12, marginBottom: 20 }}>Link players get: {mapsLink(pin)}</Muted>}
 
       <Label>{copy.peopleLabel}</Label>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-        <Pressable onPress={() => setSlots(Math.max(1, slots - 1))} style={stepper}><Text style={stepTxt}>−</Text></Pressable>
-        <Text style={{ fontSize: 30, fontFamily: font.black, marginHorizontal: 24, color: c.ink, minWidth: 30, textAlign: 'center' }}>{slots}</Text>
-        <Pressable onPress={() => setSlots(Math.min(50, slots + 1))} style={stepper}><Text style={stepTxt}>+</Text></Pressable>
-      </View>
+      {canOpen && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={{ fontFamily: font.black, color: c.ink, fontSize: 15 }}>🙌 Open to anyone</Text>
+            <Muted style={{ fontSize: 13 }}>No limit, the more the merrier. Turn off to set a number.</Muted>
+          </View>
+          <Switch value={open} onValueChange={(v) => { headcountTouched.current = true; setOpen(v); }} trackColor={{ true: c.primary, false: c.line }} thumbColor="#fff" />
+        </View>
+      )}
+      {open && canOpen ? (
+        <Muted style={{ marginBottom: 16 }}>People can keep joining. Cards will show how many are going.</Muted>
+      ) : (
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+          <Pressable onPress={() => { headcountTouched.current = true; setSlots(Math.max(1, slots - 1)); }} style={stepper}><Text style={stepTxt}>−</Text></Pressable>
+          <Text style={{ fontSize: 30, fontFamily: font.black, marginHorizontal: 24, color: c.ink, minWidth: 30, textAlign: 'center' }}>{slots}</Text>
+          <Pressable onPress={() => { headcountTouched.current = true; setSlots(Math.min(50, slots + 1)); }} style={stepper}><Text style={stepTxt}>+</Text></Pressable>
+        </View>
+      )}
 
       {copy.vibeLabel && (<>
         <Label>{copy.vibeLabel}</Label>

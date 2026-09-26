@@ -15,7 +15,7 @@ import Avatar from '../../components/Avatar';
 import FreeSheet from '../../components/FreeSheet';
 import RequestCard from '../../components/RequestCard';
 import { useCelebrate } from '../../components/Celebrate';
-import { c, font, border, pressedOffset, catStyle, neonOf, planTitle, whenLabel, inWindow } from '../../lib/theme';
+import { c, font, border, pressedOffset, catStyle, neonOf, planTitle, whenLabel, inWindow, spotsLabel } from '../../lib/theme';
 
 const WINDOWS = [{ key: 'tonight', label: 'Tonight' }, { key: 'weekend', label: 'Weekend' }, { key: 'all', label: 'All' }] as const;
 type Win = typeof WINDOWS[number]['key'];
@@ -245,7 +245,6 @@ const HScroll = ({ children }: { children: React.ReactNode }) => (
 );
 
 function MiniPlan({ r, onPress }: { r: any; onPress: () => void }) {
-  const left = r.slots_total - r.slots_filled;
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [{ width: 230, backgroundColor: c.pink, borderRadius: 20, padding: 14, marginRight: 10, ...border }, pressed && pressedOffset()]}>
       <Text style={{ fontFamily: font.black, fontSize: 12, color: neonOf(c.pink) }}>{whenLabel(r.starts_at)} · {Number(r.distance_km)} km</Text>
@@ -253,7 +252,7 @@ function MiniPlan({ r, onPress }: { r: any; onPress: () => void }) {
       <Text numberOfLines={1} style={{ fontFamily: font.black, fontSize: 16, color: c.ink, marginTop: 4 }}>{r.activity_icon} {planTitle(r)}</Text>
       <Text numberOfLines={1} style={{ fontFamily: font.medium, color: c.muted, fontSize: 13, marginTop: 2 }}>📍 {r.venue_name}</Text>
       <Text style={{ fontFamily: font.bold, color: c.ink, marginTop: 8, fontSize: 13 }}>
-        {r.has_joined ? "✅ you're in" : `${left} ${left === 1 ? 'spot' : 'spots'} left`}{r.women_only ? ' · 👩' : ''}
+        {r.has_joined ? "✅ you're in" : spotsLabel(r)}{r.women_only ? ' · 👩' : ''}
       </Text>
     </Pressable>
   );

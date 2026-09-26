@@ -1,12 +1,11 @@
 import { Pressable, Text, View, StyleSheet } from 'react-native';
-import { c, font, border, pressedOffset, planTitle, whenLabel, neonOf } from '../lib/theme';
+import { c, font, border, pressedOffset, planTitle, whenLabel, neonOf, spotsLabel } from '../lib/theme';
 import { Button, Tag } from './ui';
 import Avatar from './Avatar';
 
 // Plan card from the "Night" design: neon time · distance, spots left, title, host avatar + how many going, and "I'm in".
 // `color` is the category's tinted surface; its neon version colours the time line.
 export default function RequestCard({ item, onPress, onAccept, busy, color = c.lime }: any) {
-  const left = item.slots_total - item.slots_filled;
   const going = item.slots_filled;
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [s.card, pressed && pressedOffset()]}>
@@ -14,7 +13,7 @@ export default function RequestCard({ item, onPress, onAccept, busy, color = c.l
         <Text style={[s.when, { color: neonOf(color) }]} numberOfLines={1}>
           {whenLabel(item.starts_at)} · {Number(item.distance_km)} km
         </Text>
-        <Text style={s.spots}>{left} {left === 1 ? 'spot' : 'spots'} left</Text>
+        <Text style={s.spots}>{spotsLabel(item)}</Text>
       </View>
       <Text style={s.title} numberOfLines={2}>{item.activity_icon} {planTitle(item)}</Text>
       <Text style={s.meta} numberOfLines={1}>📍 {item.venue_name}</Text>

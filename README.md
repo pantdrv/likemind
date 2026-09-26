@@ -44,7 +44,7 @@ Local SQL testing: every migration was run twice and smoke-tested against Postgr
   Plans without a pin store only the host's area rounded to ~1 km, used for nearby search and never shown on a map.
 
 ## Setup (about 15 minutes)
-1. **Supabase**: create a project at supabase.com. In *SQL Editor* paste and run `supabase/schema.sql`, then `supabase/002_sport_alerts.sql`, `supabase/003_categories.sql`, `supabase/004_optional_pin.sql`, `supabase/005_otp_login.sql`, `supabase/006_share_spot.sql`, `supabase/007_profile_photos.sql`, `supabase/008_engagement.sql`, `supabase/009_categories_v3.sql`, `supabase/010_plan_details.sql` and `supabase/011_plan_changes.sql`.
+1. **Supabase**: create a project at supabase.com. In *SQL Editor* paste and run `supabase/schema.sql`, then `supabase/002_sport_alerts.sql`, `supabase/003_categories.sql`, `supabase/004_optional_pin.sql`, `supabase/005_otp_login.sql`, `supabase/006_share_spot.sql`, `supabase/007_profile_photos.sql`, `supabase/008_engagement.sql`, `supabase/009_categories_v3.sql`, `supabase/010_plan_details.sql`, `supabase/011_plan_changes.sql`, `supabase/012_categories_v4.sql` and `supabase/013_open_plans.sql`.
    Login is email + password or "Continue with Google". For Google: create an OAuth client (type *Web application*) in Google Cloud
    with redirect URI `https://<project>.supabase.co/auth/v1/callback`, paste its Client ID and Secret into *Authentication > Sign In / Providers > Google*,
    and add `exp://**` and `playmate://**` to *Authentication > URL Configuration > Redirect URLs*.
@@ -78,7 +78,7 @@ Per-activity form wording and extra fields (saved in `requests.details`) live in
 app/            screens (expo-router): (auth) login/register, (tabs) home/my games/profile, sport/[slug], request/new, request/[id]
 components/     Button/Input/Chip, RequestCard, Chat (realtime), RatePeople
 lib/            supabase client, auth, location, notifications, safety actions
-supabase/       schema.sql (tables, RLS, RPCs), 002_sport_alerts.sql, 003_categories.sql, 004_optional_pin.sql, 005_otp_login.sql, 006_share_spot.sql, 007_profile_photos.sql (photos bucket), 008_engagement.sql, 009_categories_v3.sql, 010_plan_details.sql, 011_plan_changes.sql,
+supabase/       schema.sql (tables, RLS, RPCs), 002_sport_alerts.sql, 003_categories.sql, 004_optional_pin.sql, 005_otp_login.sql, 006_share_spot.sql, 007_profile_photos.sql (photos bucket), 008_engagement.sql, 009_categories_v3.sql, 010_plan_details.sql, 011_plan_changes.sql, 012_categories_v4.sql, 013_open_plans.sql,
                 functions/notify (push sender), functions/open (share-link redirect)
 ```
 

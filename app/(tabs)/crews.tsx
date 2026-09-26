@@ -7,7 +7,7 @@ import { c, font, tileColor, neonOf, whenLabel } from '../../lib/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { friendlyError, safe, showError } from '../../lib/errors';
 
-const EMOJIS = ['👯', '🏸', '⚽', '🏏', '🎮', '🛍️', '🔥', '🦈', '🐐', '🌙'];
+const EMOJIS = ['👯', '🏸', '⚽', '🏏', '🎮', '🛍️', '🍜', '🏃', '📚', '🏕', '🔥', '🦈', '🐐', '🌙'];
 
 // Crews: lasting groups with their own chat and crew plans. Join with a 6-letter code.
 export default function Crews() {

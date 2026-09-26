@@ -6,7 +6,7 @@ import { photoUrl } from '../../lib/photos';
 import { Button, Card, Empty, ErrorState, H1, H2, Muted, Tag } from '../../components/ui';
 import { friendlyError, openUrl, safe } from '../../lib/errors';
 import PhotoViewer, { photoTile } from '../../components/PhotoViewer';
-import { c, font, border, shadow, fmtDate, planTitle, tileColor } from '../../lib/theme';
+import { c, font, border, shadow, fmtDate, planTitle, tileColor, spotsLabel } from '../../lib/theme';
 
 // A venue (grouped by name): how busy it is, what people do there, open plans and photos from past plans.
 export default function Venue() {
@@ -46,7 +46,7 @@ export default function Venue() {
         <Pressable key={p.id} onPress={() => router.push(`/request/${p.id}`)}
           style={{ backgroundColor: tileColor(i), borderRadius: 18, padding: 14, marginBottom: 10, ...border, ...shadow(3) }}>
           <Text style={{ fontFamily: font.black, color: c.ink, fontSize: 16 }}>{p.activity_icon} {planTitle(p)}</Text>
-          <Text style={{ fontFamily: font.semi, color: c.ink }}>{fmtDate(p.starts_at)} · {p.slots_total - p.slots_filled} spots left</Text>
+          <Text style={{ fontFamily: font.semi, color: c.ink }}>{fmtDate(p.starts_at)} · {spotsLabel(p)}</Text>
         </Pressable>
       ))}
 

@@ -2,7 +2,7 @@ import { Alert, Share } from 'react-native';
 import * as Linking from 'expo-linking';
 import { supabase } from './supabase';
 import { getCoords } from './location';
-import { fmtDate, planTitle } from './theme';
+import { fmtDate, planTitle, spotsLabel } from './theme';
 import { safe, showError } from './errors';
 
 export const KUDOS = [
@@ -23,10 +23,10 @@ export function shareLink(path: string) {
 }
 
 export async function sharePlan(d: { id: string; title?: string | null; activity_name: string; activity_icon: string; starts_at: string;
-  venue_name: string; slots_total: number; slots_filled: number }) {
+  venue_name: string; slots_total: number; slots_filled: number; open_ended?: boolean }) {
   const left = d.slots_total - d.slots_filled;
   const lines = [`${d.activity_icon} ${planTitle(d)}`, `🗓 ${fmtDate(d.starts_at)}`, `📍 ${d.venue_name}`];
-  if (left > 0) lines.push(`🙋 ${left} ${left === 1 ? 'spot' : 'spots'} left`);
+  if (left > 0) lines.push(`🙋 ${spotsLabel(d)}`);
   lines.push('', `Join on Playmate 👉 ${shareLink(`/request/${d.id}`)}`);
   await Share.share({ message: lines.join('\n') }).catch(() => {});
 }

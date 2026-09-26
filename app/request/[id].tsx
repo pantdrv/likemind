@@ -15,7 +15,7 @@ import Avatar from '../../components/Avatar';
 import KudosPanel from '../../components/KudosPanel';
 import PlanAlbum from '../../components/PlanAlbum';
 import { useCelebrate } from '../../components/Celebrate';
-import { c, font, border, fmtDate, planTitle } from '../../lib/theme';
+import { c, font, border, fmtDate, planTitle, spotsLabel } from '../../lib/theme';
 import { friendlyError, safe, showError } from '../../lib/errors';
 
 export default function RequestDetail() {
@@ -55,11 +55,10 @@ export default function RequestDetail() {
   const start = new Date(d.starts_at).getTime();
   const started = start <= now;
   const checkinOpen = d.is_member && d.checkin_enabled && d.status !== 'cancelled' && now >= start - 30 * 60_000 && now <= start + 3 * 3600_000;
-  const left = d.slots_total - d.slots_filled;
   const people = [{ id: d.host.id, name: d.host.name, avatar_url: d.host.avatar_url }, ...d.participants.map((p: any) => ({ id: p.id, name: p.name, avatar_url: p.avatar_url }))];
   const status = d.status === 'cancelled' ? { label: 'cancelled 💔', color: c.danger }
     : d.status === 'full' ? { label: 'squad full 🔒', color: c.lilac }
-    : { label: `${left} ${left === 1 ? 'spot' : 'spots'} left`, color: c.lime };
+    : { label: spotsLabel(d), color: c.lime };
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>

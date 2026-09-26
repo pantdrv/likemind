@@ -35,6 +35,10 @@ const CATS: Record<string, { color: string; emoji: string; tagline: string }> = 
   outdoor: { color: c.lime, emoji: '🌳', tagline: 'touch grass, but make it a squad' },
   entertainment: { color: c.pink, emoji: '🎬', tagline: 'gigs, movies and retail therapy, better together' },
   indoor: { color: c.lilac, emoji: '🎲', tagline: 'board games, pool, PS5: pick your battle' },
+  food: { color: c.orange, emoji: '🍜', tagline: 'good food tastes better with company' },
+  fitness: { color: c.mint, emoji: '💪', tagline: 'show up more when someone is waiting' },
+  study: { color: c.blue, emoji: '📚', tagline: 'focus together, then grab a chai' },
+  explore: { color: c.accent, emoji: '🏕', tagline: 'weekend plans that end up in the group chat forever' },
   default: { color: c.accent, emoji: '✨', tagline: 'find your people nearby' },
 };
 export const catStyle = (slug?: string) => CATS[slug ?? ''] ?? CATS.default;
@@ -42,7 +46,14 @@ export const catStyle = (slug?: string) => CATS[slug ?? ''] ?? CATS.default;
 const TILE_COLORS = [c.lime, c.accent, c.pink, c.blue, c.orange, c.lilac, c.mint];
 export const tileColor = (i: number) => TILE_COLORS[i % TILE_COLORS.length];
 
-export const planTitle = (item: { title?: string | null; activity_name?: string }) => item.title || `${item.activity_name} squad`;
+// "3 spots left" for plans with a limit; "4 going" for open plans ("open to anyone" before anyone joins).
+export function spotsLabel(r: { slots_total: number; slots_filled: number; open_ended?: boolean }) {
+  if (r.open_ended) return r.slots_filled > 0 ? `${r.slots_filled} going` : 'open to anyone';
+  const left = r.slots_total - r.slots_filled;
+  return `${left} ${left === 1 ? 'spot' : 'spots'} left`;
+}
+
+export const planTitle =(item: { title?: string | null; activity_name?: string }) => item.title || `${item.activity_name} squad`;
 
 export const fmtDate = (iso: string) =>
   new Date(iso).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
