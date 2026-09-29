@@ -7,3 +7,5 @@ ios/
 android/
 .DS_Store
 supabase/.temp/
+loadtest/tokens.json
+loadtest/*.log

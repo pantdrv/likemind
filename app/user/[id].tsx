@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
@@ -9,10 +9,11 @@ import { Button, Card, Empty, ErrorState, H1, H2, Muted, Tag } from '../../compo
 import { friendlyError, safe, showError } from '../../lib/errors';
 import { kudosLabel } from '../../lib/engage';
 import Avatar from '../../components/Avatar';
-import PhotoViewer, { photoTile } from '../../components/PhotoViewer';
+import PhotoViewer from '../../components/PhotoViewer';
 import { c, font, border, shadow, catStyle, fmtDate, planTitle } from '../../lib/theme';
+import { Image as CachedImage } from 'expo-image';
 
-// Someone's public profile: photos, bio, interests and moments. Opened from plans and alerts.
+// Someone's public profile: photos, bio, badges, kudos and interests. Opened from plans and alerts.
 export default function UserProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
@@ -48,9 +49,11 @@ export default function UserProfile() {
 
   const isMe = id === session?.user.id;
   const slide = width - 40 - 4; // screen padding and the carousel border
-  p.photos ??= []; p.moments ??= []; p.interests ??= [];
+  p.photos ??= []; p.interests ??= [];
   const since = new Date(p.member_since).toLocaleDateString([], { month: 'short', year: 'numeric' });
   const stats = { streak: 0, badges: [], kudos: {}, ...p.stats, show_up: p.stats?.show_up ?? { checked: 0, due: 0 } };
+  // Streaks are hidden for now (MVP): the "On fire" badge is still earned on the server but not shown.
+  stats.badges = (stats.badges as any[]).filter((b) => b.id !== 'on_fire');
   const showUp = stats.show_up.due > 0;
 
   return (
@@ -70,7 +73,7 @@ export default function UserProfile() {
             onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / slide))}>
             {p.photos.map((ph: any) => (
               <Pressable key={ph.id} onPress={() => setViewing({ uri: photoUrl(ph.path) })}>
-                <Image source={{ uri: photoUrl(ph.path) }} style={{ width: slide, aspectRatio: 4 / 5 }} />
+                <CachedImage source={{ uri: photoUrl(ph.path) }} style={{ width: slide, aspectRatio: 4 / 5 }} contentFit="cover" cachePolicy="disk" />
               </Pressable>
             ))}
           </ScrollView>
@@ -86,16 +89,26 @@ export default function UserProfile() {
         <View style={{ alignItems: 'center', marginBottom: 12 }}><Avatar name={p.name} size={110} color={c.pink} /></View>
       )}
 
-      <H1 style={{ fontSize: 32 }}>{p.name}{p.verified ? ' ☑️' : ''}</H1>
+      <H1 style={{ fontSize: 32 }}>{p.name}</H1>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-        {p.free_until && <Tag label={`🙋 free till ${new Date(p.free_until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`} color={c.mint} />}
-        <Tag label={Number(p.rating_count) > 0 ? `★ ${Number(p.rating).toFixed(1)} · ${p.rating_count} ratings` : 'new here ✨'} color={c.accent} />
+        {p.plans_done === 0 && <Tag label="new here ✨" color={c.accent} />}
         <Tag label={`${p.plans_done} ${p.plans_done === 1 ? 'plan' : 'plans'} done`} color={c.lime} />
-        {stats.streak > 0 && <Tag label={`🔥 ${stats.streak}-week streak`} color={c.orange} />}
         {showUp && <Tag label={`✅ showed up ${stats.show_up.checked}/${stats.show_up.due}`} color={c.mint} />}
         {p.played_together > 0 && <Tag label={`⭐ ${p.played_together} plans with you`} color={c.lilac} />}
         <Tag label={`since ${since}`} color={c.card} />
       </View>
+      {p.free_until && (
+        // What they're free for right now, and their note (from "I'm free").
+        <Card color={c.mint} style={{ marginTop: 12, padding: 14 }}>
+          <Text style={{ fontFamily: font.black, color: c.ink, fontSize: 15 }}>
+            🙋 Free till {new Date(p.free_until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+          </Text>
+          <Text style={{ fontFamily: font.bold, color: c.ink, marginTop: 4 }}>
+            {(p.free_for ?? []).length ? p.free_for.map((a: any) => `${a.icon} ${a.name}`).join(' · ') : '✨ Up for anything'}
+          </Text>
+          {p.free_note ? <Text style={{ fontFamily: font.medium, color: c.ink, opacity: 0.8, fontStyle: 'italic', marginTop: 4 }}>“{p.free_note}”</Text> : null}
+        </Card>
+      )}
       {!isMe && <View style={{ marginTop: 14 }}><Button variant="pop" title="🙌 Invite to a plan" onPress={openInvite} /></View>}
       {p.bio ? (
         <Card color={c.card} style={{ marginTop: 16 }}>
@@ -128,24 +141,6 @@ export default function UserProfile() {
       {p.interests.length === 0 ? <Muted>Nothing picked yet.</Muted> : (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {p.interests.map((a: any) => <Tag key={a.slug} label={`${a.icon} ${a.name}`} color={catStyle(a.category).color} />)}
-        </View>
-      )}
-
-      <H2>Moments 📸</H2>
-      {p.moments.length === 0 ? <Muted>No moments shared yet.</Muted> : (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-          {p.moments.map((m: any) => {
-            const tag = m.activity_name ? `${m.activity_icon} ${m.activity_name}` : null;
-            return (
-              <Pressable key={m.id} onPress={() => setViewing({ uri: photoUrl(m.path), caption: [tag, m.caption].filter(Boolean).join(' · ') })}
-                style={[photoTile, { width: '48.5%', aspectRatio: 1, marginBottom: 12 }]}>
-                <Image source={{ uri: photoUrl(m.path) }} style={{ flex: 1 }} />
-                {tag && <View style={{ position: 'absolute', left: 6, bottom: 6, backgroundColor: c.card, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: c.line }}>
-                  <Text style={{ fontFamily: font.bold, fontSize: 11, color: c.ink }}>{tag}</Text>
-                </View>}
-              </Pressable>
-            );
-          })}
         </View>
       )}
 

@@ -103,7 +103,7 @@ export default function PlanChangeSheet({ plan, mode, onClose, onDone }:
               <View style={{ marginTop: 14 }}>
                 {Platform.OS === 'ios' ? (
                   <View style={{ alignItems: 'flex-start', marginBottom: 12 }}>
-                    <DateTimePicker value={when} mode="datetime" minimumDate={new Date()} themeVariant="dark" onChange={(_, d) => d && setWhen(d)} />
+                    <DateTimePicker value={when} mode="datetime" minimumDate={new Date()} themeVariant={c.scheme} onChange={(_, d) => d && setWhen(d)} />
                   </View>
                 ) : (
                   <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>

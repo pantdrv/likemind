@@ -5,21 +5,25 @@
     "version": "0.1.0",
     "scheme": "playmate",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "com.yourcompany.playmate",
+      "bundleIdentifier": "com.pantdrv.likemind",
       "supportsTablet": false,
       "config": {
         "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_KEY"
       }
     },
     "android": {
-      "package": "com.yourcompany.playmate",
+      "package": "com.pantdrv.likemind",
       "config": {
         "googleMaps": {
           "apiKey": "YOUR_ANDROID_GOOGLE_MAPS_KEY"
         }
-      }
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -38,11 +42,18 @@
         "expo-image-picker",
         {
           "photosPermission": "Playmate uses your photos so you can add profile pictures and moments from your plans.",
-          "cameraPermission": "Playmate uses the camera for your verification selfie.",
+          "cameraPermission": false,
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-image"
     ],
-    "backgroundColor": "#0E0E10"
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "45ab0c05-5194-4ae8-bcf7-09264beb4378"
+      }
+    },
+    "owner": "dhruvp1995"
   }
 }

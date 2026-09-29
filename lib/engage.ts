@@ -35,6 +35,22 @@ export async function shareCrew(c: { name: string; emoji: string; code: string }
   await Share.share({ message: `${c.emoji} Join my crew "${c.name}" on Playmate!\nCode: ${c.code}\n👉 ${shareLink(`/crews?code=${c.code}`)}` }).catch(() => {});
 }
 
+// "Ask to join": the host accepts or declines. People the host invited, and crew members on crew plans, get in straight away.
+// Returns 'joined', 'pending', or null if it failed (the error has been shown).
+export async function askToJoin(plan: { id: string; host_name?: string; host?: { name?: string } }): Promise<'joined' | 'pending' | null> {
+  const { data, error } = await safe(supabase.rpc('join_request', { p_request: plan.id }));
+  if (error) { showError("Couldn't send your request", error); return null; }
+  const host = plan.host_name ?? plan.host?.name ?? 'The host';
+  if (data === 'pending') Alert.alert('Request sent 🙋', `${host} will get a ping. You'll get an alert when they accept.`);
+  return data === 'joined' ? 'joined' : 'pending';
+}
+
+export async function cancelAsk(requestId: string) {
+  const { error } = await safe(supabase.rpc('cancel_join_request', { p_request: requestId }));
+  if (error) showError("Couldn't cancel your request", error);
+  return !error;
+}
+
 export async function checkIn(requestId: string) {
   const pos = await getCoords();
   if (!pos) return Alert.alert('Location needed', 'Allow location access so we can check you in at the spot.');

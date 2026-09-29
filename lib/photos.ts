@@ -6,8 +6,44 @@ export type Kind = 'profile' | 'moment';
 export const MAX = { profile: 6, moment: 30 };
 const BUCKET = 'photos';
 const MAX_SIDE = 1280;
+const THUMB_SIDE = 320;
 
 export const photoUrl = (path: string) => supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+
+// Each upload also stores a small copy (<name>_t.jpg, ~20 KB) for avatars and grids. Photos uploaded before thumbnails
+// existed have none; <Thumb> and <Avatar> fall back to the full photo when the small copy is missing.
+export const thumbPath = (path: string) => path.replace(/\.jpg$/, '_t.jpg');
+export const thumbUrl = (path: string) => photoUrl(thumbPath(path));
+// Same, starting from a full public URL (e.g. profiles.avatar_url). Returns null for URLs that aren't our photos.
+export const thumbFromUrl = (url: string) =>
+  url.includes(`/object/public/${BUCKET}/`) && /\.jpg$/.test(url) && !/_t\.jpg$/.test(url) ? url.replace(/\.jpg$/, '_t.jpg') : null;
+
+// Base64 -> bytes. The image is uploaded from the manipulator's base64 output: reading the file back with fetch()
+// can return an empty body on Android, which uploaded 0-byte photos that never showed up.
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const LOOKUP = new Uint8Array(128);
+for (let i = 0; i < B64.length; i++) LOOKUP[B64.charCodeAt(i)] = i;
+function base64ToBytes(b64: string): Uint8Array {
+  const clean = b64.replace(/[^A-Za-z0-9+/]/g, '');
+  const len = clean.length;
+  const out = new Uint8Array(Math.floor((len * 3) / 4));
+  let o = 0;
+  for (let i = 0; i < len; i += 4) {
+    const a = LOOKUP[clean.charCodeAt(i)], b = LOOKUP[clean.charCodeAt(i + 1)];
+    const c3 = i + 2 < len ? LOOKUP[clean.charCodeAt(i + 2)] : 0, d = i + 3 < len ? LOOKUP[clean.charCodeAt(i + 3)] : 0;
+    out[o++] = (a << 2) | (b >> 4);
+    if (i + 2 < len) out[o++] = ((b & 15) << 4) | (c3 >> 2);
+    if (i + 3 < len) out[o++] = ((c3 & 3) << 6) | d;
+  }
+  return out.slice(0, o);
+}
+
+async function uploadJpeg(path: string, base64: string | undefined) {
+  const bytes = base64 ? base64ToBytes(base64) : new Uint8Array();
+  if (bytes.length < 1000) throw new Error("Couldn't read that photo. Try another one.");
+  const up = await supabase.storage.from(BUCKET).upload(path, bytes.buffer as ArrayBuffer, { contentType: 'image/jpeg', cacheControl: '31536000' });
+  if (up.error) throw up.error;
+}
 
 // Returns local image URIs the user picked (empty if cancelled or permission denied).
 export async function pickImages(limit: number): Promise<{ uri: string; width: number; height: number }[]> {
@@ -24,13 +60,18 @@ export async function uploadPhoto(userId: string, img: { uri: string; width: num
   extra: { position?: number; activity_id?: number | null; caption?: string | null; request_id?: string | null } = {}) {
   const long = Math.max(img.width, img.height);
   const resize = long > MAX_SIDE ? [{ resize: img.width >= img.height ? { width: MAX_SIDE } : { height: MAX_SIDE } }] : [];
-  const out = await manipulateAsync(img.uri, resize, { compress: 0.72, format: SaveFormat.JPEG });
-  const body = await (await fetch(out.uri)).arrayBuffer();
+  const out = await manipulateAsync(img.uri, resize, { compress: 0.72, format: SaveFormat.JPEG, base64: true });
   const path = `${userId}/${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
-  const up = await supabase.storage.from(BUCKET).upload(path, body, { contentType: 'image/jpeg' });
-  if (up.error) throw up.error;
+  await uploadJpeg(path, out.base64);
+  // The small copy is a bonus: if it fails, the app just shows the full photo.
+  try {
+    const small = await manipulateAsync(img.uri, [{ resize: img.width >= img.height ? { width: THUMB_SIDE } : { height: THUMB_SIDE } }], { compress: 0.7, format: SaveFormat.JPEG, base64: true });
+    await uploadJpeg(thumbPath(path), small.base64);
+  } catch (e) {
+    if (__DEV__) console.warn('thumbnail upload failed', e);
+  }
   const { error } = await supabase.from('user_photos').insert({ user_id: userId, kind, path, ...extra });
-  if (error) { await supabase.storage.from(BUCKET).remove([path]).catch(() => {}); throw error; }
+  if (error) { await supabase.storage.from(BUCKET).remove([path, thumbPath(path)]).catch(() => {}); throw error; }
   return path;
 }
 
@@ -38,7 +79,7 @@ export async function deletePhoto(id: number, path: string) {
   const { error } = await supabase.from('user_photos').delete().eq('id', id);
   if (error) throw error;
   // The row is gone, so the photo no longer shows; a leftover file is harmless if this fails.
-  await supabase.storage.from(BUCKET).remove([path]).catch(() => {});
+  await supabase.storage.from(BUCKET).remove([path, thumbPath(path)]).catch(() => {});
 }
 
 // Keeps profiles.avatar_url pointing at the main (first) profile photo.
@@ -59,18 +100,3 @@ export async function makeMain(userId: string, photos: { id: number }[], id: num
   await syncAvatar(userId);
 }
 
-// Verification selfie: front camera, uploaded to the private "verification" bucket for manual review.
-export async function submitVerificationSelfie(userId: string) {
-  const perm = await ImagePicker.requestCameraPermissionsAsync();
-  if (!perm.granted) throw new Error('Allow camera access in Settings to take a verification selfie.');
-  const res = await ImagePicker.launchCameraAsync({ cameraType: ImagePicker.CameraType.front, quality: 1 });
-  if (res.canceled) return false;
-  const a = res.assets[0];
-  const out = await manipulateAsync(a.uri, [{ resize: a.width >= a.height ? { width: 1080 } : { height: 1080 } }], { compress: 0.7, format: SaveFormat.JPEG });
-  const path = `${userId}/selfie-${Date.now()}.jpg`;
-  const up = await supabase.storage.from('verification').upload(path, await (await fetch(out.uri)).arrayBuffer(), { contentType: 'image/jpeg' });
-  if (up.error) throw up.error;
-  const { error } = await supabase.rpc('request_verification', { p_path: path });
-  if (error) throw error;
-  return true;
-}

@@ -7,6 +7,8 @@ export type Copy = {
   peopleLabel: string; vibeLabel: string | null; notePh: string; submit: string; extras: Extra[];
   // Headcount: the stepper's starting number, and whether "open to anyone" (no limit) is on by default, offered, or not offered.
   slots: number; open: 'default' | 'allowed' | 'never';
+  // Distance: default "within X km" on the activity page, and whether km is shown at all (trips only care about the meeting point).
+  radius: number; showKm: boolean;
 };
 
 const TICKETS: Extra = { key: 'tickets', label: 'Tickets', emoji: '🎟', options: ['I have tickets for all', 'Buying together', 'Everyone buys their own'] };
@@ -33,10 +35,10 @@ const COSTS: Extra = { key: 'costs', label: 'Costs', emoji: '💸', options: ['S
 const DIFFICULTY: Extra = { key: 'difficulty', label: 'Difficulty', emoji: '⛰', options: ['Easy', 'Moderate', 'Tough'] };
 
 const GENERIC: Copy = {
-  titleLabel: 'Title (optional)', titlePh: 'Give your plan a name', whenLabel: 'When',
+  titleLabel: 'Title', titlePh: 'Give your plan a name', whenLabel: 'When',
   placeLabel: 'Meeting place', placePh: 'Where are you meeting?', peopleLabel: 'How many more people?',
   vibeLabel: 'Vibe', notePh: 'Anything people should know?', submit: 'Post it 🚀', extras: [],
-  slots: 2, open: 'allowed',
+  slots: 2, open: 'allowed', radius: 10, showKm: true,
 };
 
 const CATEGORY: Record<string, Partial<Copy>> = {
@@ -52,31 +54,31 @@ const CATEGORY: Record<string, Partial<Copy>> = {
   food: {
     titleLabel: "What are we eating?", titlePh: 'e.g. best dosa in town', placeLabel: 'Place', placePh: "e.g. Rameshwaram Cafe, Indiranagar",
     peopleLabel: 'How many joining?', vibeLabel: null, notePh: "e.g. I'll book a table, come hungry", submit: 'Post food plan 🍜',
-    extras: [BUDGET, DIET, BILL], slots: 3, open: 'allowed',
+    extras: [BUDGET, DIET, BILL], slots: 3, open: 'allowed', radius: 10,
   },
   fitness: {
     titleLabel: "What's the workout?", titlePh: 'e.g. easy morning run', placeLabel: 'Meeting point', placePh: 'e.g. Cubbon Park main gate',
     peopleLabel: 'How many joining?', vibeLabel: 'Intensity', notePh: 'e.g. bring water, coffee after 🙌', submit: 'Post it 💪',
-    slots: 2, open: 'default',
+    slots: 2, open: 'default', radius: 5,
   },
   study: {
     titleLabel: 'What are you working on?', titlePh: 'e.g. DSA prep, 2 hours', placeLabel: 'Café / library', placePh: 'e.g. Third Wave Coffee, HSR',
     peopleLabel: 'How many seats?', vibeLabel: null, notePh: 'e.g. power sockets near the window', submit: 'Post session 📚',
-    extras: [WORK_VIBE, WIFI], slots: 3, open: 'default',
+    extras: [WORK_VIBE, WIFI], slots: 3, open: 'default', radius: 5,
   },
   explore: {
     titleLabel: 'Where are we going?', titlePh: 'e.g. Nandi Hills sunrise', whenLabel: 'Leaving at', placeLabel: 'Meeting point', placePh: 'e.g. Hebbal flyover, Shell petrol pump',
     peopleLabel: 'How many joining?', vibeLabel: null, notePh: 'e.g. carry a jacket, breakfast on the way', submit: 'Post trip 🏕',
-    extras: [TRANSPORT, COSTS], slots: 3, open: 'default',
+    extras: [TRANSPORT, COSTS], slots: 3, open: 'default', radius: 50, showKm: false,
   },
   entertainment: {
     placeLabel: 'Where?', placePh: 'e.g. Phoenix Marketcity', peopleLabel: 'How many joining?', vibeLabel: null,
-    notePh: 'Anything people should know?', submit: 'Post it 🚀', slots: 2, open: 'allowed',
+    notePh: 'Anything people should know?', submit: 'Post it 🚀', slots: 2, open: 'allowed', radius: 25,
   },
 };
 
 const ACTIVITY: Record<string, Partial<Copy>> = {
-  // Outdoor
+  // Sports (slug "outdoor")
   cricket: { titlePh: 'e.g. box cricket, 6-a-side', placeLabel: 'Ground / turf', placePh: 'e.g. Turf Park, Box 2', notePh: 'e.g. bring a bat, splitting the turf fee' },
   football: { titlePh: 'e.g. 5-a-side turf game', placeLabel: 'Turf / ground', placePh: 'e.g. Hudle Turf, Koramangala', notePh: 'e.g. wear studs, splitting the turf fee' },
   tennis: { titlePh: 'e.g. singles rally, 1 hour', placeLabel: 'Court', notePh: 'e.g. bring balls, I have a spare racket' },
@@ -149,28 +151,6 @@ const ACTIVITY: Record<string, Partial<Copy>> = {
   'nba-2k': { titleLabel: 'Game mode', titlePh: 'e.g. 2v2 park', placeLabel: 'Where are we playing?', placePh: "Gaming café or someone's place", extras: [PS5_SETUP] },
 };
 
-// Chat suggestions ("Not sure what to say? Tap one"), shown with the generic ones in plan chats.
-const QUICK_CATEGORY: Record<string, string[]> = {
-  outdoor: ['Who has the ball/racket? 🎒', 'Splitting the court fee?', 'Which court exactly?'],
-  entertainment: ['Booked yet? 🎟', 'Meet outside or inside?', 'Food before or after? 🍜'],
-  indoor: ['Who is bringing what? 🎲', 'Best of 3?', 'Loser buys chai ☕'],
-  food: ['Should I book a table?', 'Veg options there? 🥗', 'Split the bill?'],
-  fitness: ['Easy pace pls 😅', 'Coffee after? ☕', 'Meeting at the gate?'],
-  study: ['Found a table 🪑', 'Break at the top of the hour?', 'Anyone have a charger? 🔌'],
-  explore: ['Who is riding with whom? 🏍', 'Leaving on time pls ⏰', 'Breakfast stop on the way?'],
-};
-const QUICK_ACTIVITY: Record<string, string[]> = {
-  movie: ['Booked seats? 🎟', 'Which row are we in?', 'Popcorn combo? 🍿'],
-  concert: ['Which gate are we meeting at?', 'Got your tickets? 🎟', 'Eating before the show?'],
-  cricket: ['Who has the bat and ball? 🏏', 'Tennis ball or leather?', 'Splitting the turf fee?'],
-  football: ['Bibs or colours? 👕', 'Splitting the turf fee?', 'Studs or flats?'],
-  'photo-walk': ['Meeting at the entrance?', 'Camera or phone? 📷', 'Chai after? ☕'],
-  'heritage-walk': ['Meeting at the entrance?', 'Comfy shoes pls 👟', 'Chai after? ☕'],
-  chess: ['Blitz or rapid? ♟️', 'Bringing a clock?', "Who's bringing a board?"],
-};
-export const quickReplies = (activitySlug?: string, categorySlug?: string) =>
-  QUICK_ACTIVITY[activitySlug ?? ''] ?? QUICK_CATEGORY[categorySlug ?? ''] ?? [];
-
 // Headcount per activity: [starting number of spots, open to anyone?]. Fixed-size games never offer "open";
 // walks, crawls, runs and study sessions start open; things limited by seats or tables offer it but start with a number.
 const HEADCOUNT: Record<string, [number, Copy['open']]> = {
@@ -186,10 +166,22 @@ const HEADCOUNT: Record<string, [number, Copy['open']]> = {
   trek: [5, 'default'], 'sunrise-ride': [3, 'allowed'], 'day-trip': [3, 'allowed'], 'heritage-walk': [5, 'default'], 'photo-walk': [5, 'default'], 'road-trip': [3, 'allowed'],
 };
 
+// Distance per activity where it differs from its category: [search radius in km, show km?].
+// Category defaults: fitness & study 5 km, sports/games/food 10 km, entertainment 25 km, trips 50 km without km.
+const DISTANCE: Record<string, [number, boolean]> = {
+  cycling: [10, true], running: [10, true],                       // people ride or run a bit further
+  'dessert-run': [5, true], 'cafe-hopping': [5, true],             // quick, local
+  mall: [10, true], groceries: [5, true], 'window-shopping': [10, true], thrifting: [10, true], sneakers: [10, true],
+  'heritage-walk': [25, true], 'photo-walk': [25, true],           // city walks: km still useful
+};
+
 export function planCopy(activitySlug?: string, categorySlug?: string): Copy {
-  const merged = { ...GENERIC, ...(CATEGORY[categorySlug ?? ''] ?? {}), ...(ACTIVITY[activitySlug ?? ''] ?? {}) };
+  let merged = { ...GENERIC, ...(CATEGORY[categorySlug ?? ''] ?? {}), ...(ACTIVITY[activitySlug ?? ''] ?? {}) };
   const hc = HEADCOUNT[activitySlug ?? ''];
-  return hc ? { ...merged, slots: hc[0], open: hc[1] } : merged;
+  if (hc) merged = { ...merged, slots: hc[0], open: hc[1] };
+  const dist = DISTANCE[activitySlug ?? ''];
+  if (dist) merged = { ...merged, radius: dist[0], showKm: dist[1] };
+  return merged;
 }
 
 // Tags for the plan page, e.g. "🗣 Hindi", "🎞 IMAX".

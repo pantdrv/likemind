@@ -5,6 +5,13 @@ import { friendlyError, safe, showError } from './errors';
 
 export type AlertItem = { id: number; request_id: string | null; actor_id: string | null; title: string; body: string; read_at: string | null; created_at: string };
 
+// "My area": one distance used for both the Home feed and new-plan alerts (stored as alert_areas.radius_km).
+export const AREA_KMS = [2, 5, 10, 25, 50];
+export const DEFAULT_AREA_KM = 10;
+export async function setMyAreaKm(km: number) {
+  return safe(supabase.rpc('set_alert_radius', { p_km: km }));
+}
+
 // Saves the player's approximate area (the server rounds it to ~1 km) so they get alerts for nearby games.
 let last = { userId: '', at: 0 };
 export async function syncAlertArea(userId: string, pos?: Coords | null) {
@@ -36,7 +43,7 @@ export function AlertsProvider({ userId, children }: { userId: string; children:
 
   useEffect(() => {
     reload();
-    const ch = supabase.channel(`alerts:${userId}`)
+    const ch = supabase.channel(`alerts:${userId}:${Math.random().toString(36).slice(2)}`)  // unique, see Chat
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
         (p) => setItems((cur) => [p.new as AlertItem, ...(cur ?? [])]))
       .subscribe();

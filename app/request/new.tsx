@@ -60,18 +60,18 @@ export default function NewRequest() {
     if (name && !venue.trim()) setVenue(name);
   };
 
-  const search = async () => {
-    if (!query.trim()) return;
+  // Search as you type: waits 0.4 s after the last keystroke, from 3 letters; a newer search cancels the older one.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 3) { setResults(null); setSearching(false); return; }
+    const ctrl = new AbortController();
     setSearching(true);
-    try {
-      const found = await searchPlaces(query.trim(), here);
-      setResults(found);
-      if (!found.length) Alert.alert('No places found', 'Try adding the area or city, e.g. "Smash Arena Koramangala".');
-    } catch {
-      Alert.alert('Search failed', 'Allow location access and check your internet connection.');
-    }
-    setSearching(false);
-  };
+    const timer = setTimeout(async () => {
+      const found = await searchPlaces(q, here, ctrl.signal).catch(() => []);
+      if (!ctrl.signal.aborted) { setResults(found); setSearching(false); }
+    }, 400);
+    return () => { clearTimeout(timer); ctrl.abort(); };
+  }, [query, here]);
 
   const applyLink = async (text: string) => {
     setLink(text);
@@ -128,6 +128,9 @@ export default function NewRequest() {
     });
 
   const submit = async () => {
+    // Title is required: it's the first thing people see on the plan card.
+    if (title.trim().length < 2) return Alert.alert(copy.titleLabel === 'Title' ? 'Add a title' : copy.titleLabel,
+      `Give your plan a short title so people know what it is, ${copy.titlePh.startsWith('e.g.') ? copy.titlePh : `e.g. ${copy.titlePh}`}.`);
     if (!venue.trim()) return Alert.alert(`Add the ${copy.placeLabel.replace('?', '').toLowerCase()}`, `Give it a name, ${copy.placePh.startsWith('e.g.') ? copy.placePh : `e.g. ${copy.placePh}`}.`);
     // Without a pin, the host's area (rounded to ~1 km on the server) is still needed so nearby people can find the plan.
     const spot = usePin ? pin : here;
@@ -135,7 +138,7 @@ export default function NewRequest() {
     if (when.getTime() <= Date.now()) return Alert.alert('Pick a time in the future', `The ${copy.whenLabel.toLowerCase()} you picked has already passed.`);
     setBusy(true);
     const { data, error } = await safe(supabase.rpc('create_request', {
-      p_slug: slug, p_title: title, p_note: note, p_skill: skill, p_starts: when.toISOString(),
+      p_slug: slug, p_title: title.trim(), p_note: note, p_skill: skill, p_starts: when.toISOString(),
       p_venue: venue.trim(), p_lat: spot.lat, p_lng: spot.lng, p_slots: slots, p_has_pin: usePin,
       p_women_only: womanOnly, p_crew_id: crewInfo?.id ?? null,
       p_details: Object.fromEntries(Object.entries(details).filter(([k, v]) => v && copy.extras.some((x) => x.key === k))),
@@ -160,7 +163,7 @@ export default function NewRequest() {
         <View style={{ marginBottom: 18 }}><Button variant="outline" small title="⚡ Same as last time" onPress={() => prefill(lastPlan)} /></View>
       )}
       <Stack.Screen options={{ title: act ? `${act.icon} New ${act.name} plan` : 'Start a plan' }} />
-      <Input label={copy.titleLabel} value={title} onChangeText={setTitle} placeholder={copy.titlePh} />
+      <Input label={copy.titleLabel} value={title} onChangeText={setTitle} placeholder={copy.titlePh} maxLength={60} />
 
       <Label>{copy.whenLabel}</Label>
       {Platform.OS === 'ios' ? (
@@ -186,20 +189,24 @@ export default function NewRequest() {
       </View>
       {usePin && (
         <View style={{ marginBottom: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-            <TextInput value={query} onChangeText={setQuery} onSubmitEditing={search} returnKeyType="search" placeholder="🔎 Search a place or address"
-              placeholderTextColor="#9A948C" style={[field, { flex: 1, marginRight: 8 }]} />
-            <Button small title={searching ? '…' : 'Search'} onPress={search} disabled={searching} />
+          <View style={{ justifyContent: 'center', marginBottom: 10 }}>
+            <TextInput value={query} onChangeText={setQuery} returnKeyType="search" autoCorrect={false} placeholder="🔎 Start typing a place, e.g. Cubbon Park"
+              placeholderTextColor={c.muted} keyboardAppearance={c.scheme} style={[field(), { paddingRight: 40 }]} />
+            {searching ? <ActivityIndicator color={c.primary} style={{ position: 'absolute', right: 12 }} />
+              : query ? <Pressable onPress={() => setQuery('')} hitSlop={10} style={{ position: 'absolute', right: 14 }}><Text style={{ color: c.muted, fontSize: 16 }}>✕</Text></Pressable> : null}
           </View>
+          {results?.length === 0 && !searching && (
+            <Muted style={{ fontSize: 13, marginBottom: 10 }}>No places found for "{query.trim()}". Try adding the area, e.g. "Smash Arena Koramangala", or paste a Google Maps link below.</Muted>
+          )}
           {results?.map((r, i) => (
-            <Pressable key={i} onPress={() => { moveTo(r, r.label.split(',')[0]); setResults(null); }}
+            <Pressable key={`${r.lat},${r.lng},${i}`} onPress={() => { moveTo(r, r.label.split(',')[0]); setResults(null); }}
               style={{ backgroundColor: c.card, borderRadius: 14, borderWidth: 1, borderColor: c.line, padding: 12, marginBottom: 8 }}>
               <Text style={{ fontFamily: font.semi, color: c.ink }}>📍 {r.label}</Text>
             </Pressable>
           ))}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
             <TextInput value={link} onChangeText={setLink} onSubmitEditing={() => applyLink(link)} autoCapitalize="none" autoCorrect={false}
-              placeholder="🔗 Or paste a Google Maps link" placeholderTextColor="#9A948C" style={[field, { flex: 1, marginRight: 8 }]} />
+              placeholder="🔗 Or paste a Google Maps link" placeholderTextColor={c.muted} style={[field(), { flex: 1, marginRight: 8 }]} />
             {reading ? <ActivityIndicator color={c.primary} style={{ width: 70 }} />
               : <Button small variant="outline" title="Paste" onPress={async () => applyLink(await Clipboard.getStringAsync().catch(() => ''))} />}
           </View>
@@ -233,9 +240,9 @@ export default function NewRequest() {
         <Muted style={{ marginBottom: 16 }}>People can keep joining. Cards will show how many are going.</Muted>
       ) : (
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-          <Pressable onPress={() => { headcountTouched.current = true; setSlots(Math.max(1, slots - 1)); }} style={stepper}><Text style={stepTxt}>−</Text></Pressable>
+          <Pressable onPress={() => { headcountTouched.current = true; setSlots(Math.max(1, slots - 1)); }} style={stepper()}><Text style={stepTxt()}>−</Text></Pressable>
           <Text style={{ fontSize: 30, fontFamily: font.black, marginHorizontal: 24, color: c.ink, minWidth: 30, textAlign: 'center' }}>{slots}</Text>
-          <Pressable onPress={() => { headcountTouched.current = true; setSlots(Math.min(50, slots + 1)); }} style={stepper}><Text style={stepTxt}>+</Text></Pressable>
+          <Pressable onPress={() => { headcountTouched.current = true; setSlots(Math.min(50, slots + 1)); }} style={stepper()}><Text style={stepTxt()}>+</Text></Pressable>
         </View>
       )}
 
@@ -273,6 +280,6 @@ export default function NewRequest() {
     </ScrollView>
   );
 }
-const stepper = { width: 48, height: 48, borderRadius: 24, backgroundColor: c.lime, ...border, ...shadow(3), alignItems: 'center' as const, justifyContent: 'center' as const };
-const stepTxt = { fontSize: 24, color: c.ink, fontFamily: font.black };
-const field = { backgroundColor: c.card, ...border, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: c.ink, fontFamily: font.medium };
+const stepper = () => ({ width: 48, height: 48, borderRadius: 24, backgroundColor: c.lime, ...border, ...shadow(3), alignItems: 'center' as const, justifyContent: 'center' as const });
+const stepTxt = () => ({ fontSize: 24, color: c.ink, fontFamily: font.black });
+const field = () => ({ backgroundColor: c.card, ...border, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: c.ink, fontFamily: font.medium });

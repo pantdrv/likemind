@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, TextInputProps, TextProps, View, ViewStyle, StyleSheet, StyleProp } from 'react-native';
+import { ActivityIndicator, Pressable, Text, TextInput, TextInputProps, TextProps, View, ViewStyle, StyleProp } from 'react-native';
 import { c, font, border, pressedOffset, neonOf } from '../lib/theme';
 
 export function Button({ title, onPress, loading, disabled, variant = 'primary', small }:
@@ -9,7 +9,7 @@ export function Button({ title, onPress, loading, disabled, variant = 'primary',
   const color = variant === 'outline' ? c.ink : variant === 'danger' ? '#fff' : c.onNeon;
   return (
     <Pressable onPress={onPress} disabled={disabled || loading}
-      style={({ pressed }) => [s.btn, { backgroundColor: bg, opacity: disabled ? 0.45 : 1, paddingVertical: small ? 8 : 15 },
+      style={({ pressed }) => [s().btn, { backgroundColor: bg, opacity: disabled ? 0.45 : 1, paddingVertical: small ? 8 : 15 },
         variant === 'outline' ? border : { borderWidth: 1, borderColor: bg }, pressed && pressedOffset()]}>
       {loading ? <ActivityIndicator color={color} /> : <Text style={{ color, fontFamily: font.black, fontSize: small ? 14 : 17 }}>{title}</Text>}
     </Pressable>
@@ -22,9 +22,9 @@ export function Input(props: TextInputProps & { label?: string }) {
   return (
     <View style={{ marginBottom: 16 }}>
       {label ? <Label>{label}</Label> : null}
-      <TextInput placeholderTextColor={c.muted} selectionColor={c.primary} keyboardAppearance="dark" {...rest}
+      <TextInput placeholderTextColor={c.muted} selectionColor={c.primary} keyboardAppearance={c.scheme} {...rest}
         onFocus={(e) => { setFocused(true); rest.onFocus?.(e); }} onBlur={(e) => { setFocused(false); rest.onBlur?.(e); }}
-        style={[s.input, focused && { borderColor: c.primary }, style]} />
+        style={[s().input, focused && { borderColor: c.primary }, style]} />
     </View>
   );
 }
@@ -33,14 +33,14 @@ export function Input(props: TextInputProps & { label?: string }) {
 export function Chip({ label, active, onPress, color = c.lime }: { label: string; active?: boolean; onPress: () => void; color?: string }) {
   const lit = neonOf(color);
   return (
-    <Pressable onPress={onPress} style={[s.chip, active && { backgroundColor: lit, borderColor: lit }]}>
+    <Pressable onPress={onPress} style={[s().chip, active && { backgroundColor: lit, borderColor: lit }]}>
       <Text style={{ color: active ? c.onNeon : c.ink, fontFamily: active ? font.bold : font.medium, fontSize: 14 }}>{label}</Text>
     </Pressable>
   );
 }
 
 export function Card({ children, color = c.card, style }: { children: ReactNode; color?: string; style?: StyleProp<ViewStyle> }) {
-  return <View style={[s.card, { backgroundColor: color }, style]}>{children}</View>;
+  return <View style={[s().card, { backgroundColor: color }, style]}>{children}</View>;
 }
 
 export const H1 = ({ style, ...p }: TextProps) => <Text {...p} style={[{ fontFamily: font.black, fontSize: 34, lineHeight: 38, color: c.ink, letterSpacing: -0.8 }, style]} />;
@@ -69,13 +69,14 @@ export const ErrorState = ({ message, onRetry }: { message: string; onRetry?: ()
 );
 
 export const Tag =({ label, color = c.accent }: { label: string; color?: string }) => (
-  <View style={[s.tag, { backgroundColor: color }]}><Text style={{ fontFamily: font.bold, fontSize: 12, color: c.ink }}>{label}</Text></View>
+  <View style={[s().tag, { backgroundColor: color }]}><Text style={{ fontFamily: font.bold, fontSize: 12, color: c.ink }}>{label}</Text></View>
 );
 
-const s = StyleSheet.create({
+// Built when drawn (not at load) so it follows the Day/Night switch.
+const s = () => ({
   btn: { borderRadius: 999, alignItems: 'center', paddingHorizontal: 18 },
   input: { backgroundColor: c.card, ...border, borderRadius: 14, padding: 14, fontSize: 16, color: c.ink, fontFamily: font.medium },
   chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, ...border, backgroundColor: c.card, marginRight: 8, marginBottom: 10 },
   card: { borderRadius: 20, padding: 16, ...border },
   tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, ...border, alignSelf: 'flex-start' },
-});
+} as const);

@@ -52,7 +52,7 @@ export default function CrewPage() {
           {(crew.members ?? []).map((m: any) => (
             <Pressable key={m.id} onPress={() => router.push(`/user/${m.id}`)} style={{ alignItems: 'center', marginRight: 14, width: 64 }}>
               <Avatar url={m.avatar_url} name={m.name} size={52} />
-              <Text numberOfLines={1} style={{ fontFamily: font.bold, fontSize: 12, color: c.ink, marginTop: 4 }}>{String(m.name ?? '').split(' ')[0]}{m.verified ? ' ☑️' : ''}</Text>
+              <Text numberOfLines={1} style={{ fontFamily: font.bold, fontSize: 12, color: c.ink, marginTop: 4 }}>{String(m.name ?? '').split(' ')[0]}</Text>
             </Pressable>
           ))}
         </ScrollView>

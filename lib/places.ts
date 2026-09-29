@@ -12,9 +12,55 @@ const km = (a: Coords, b: Coords) => {
   return Math.sqrt(x * x + y * y) * 6371;
 };
 
-// Free search using the phone's own geocoder (Apple on iOS, Google on Android). Closest results first.
-export async function searchPlaces(query: string, near?: Coords | null): Promise<Place[]> {
-  const hits = (await Location.geocodeAsync(query)).slice(0, 5).map((h) => ({ lat: h.latitude, lng: h.longitude }));
+// Search-as-you-type for places. Uses Photon (free OpenStreetMap autocomplete, no API key), first within ~50 km of the
+// user (in Photon's relevance order), then up to 300 km away (nearest first, e.g. treks outside the city). Falls back to the phone's geocoder (Apple / Google) if Photon can't be reached.
+// Pass an AbortSignal to drop a search that a newer keystroke has replaced.
+export async function searchPlaces(query: string, near?: Coords | null, signal?: AbortSignal): Promise<Place[]> {
+  try {
+    let found = await photon(query, near, true, signal);
+    if (!found.length && near) found = await photon(query, near, false, signal);
+    return found;
+  } catch (e: any) {
+    if (signal?.aborted) return [];
+    return deviceGeocode(query, near);
+  }
+}
+
+async function photon(query: string, near: Coords | null | undefined, local: boolean, signal?: AbortSignal): Promise<Place[]> {
+  const params = new URLSearchParams({ q: query, limit: '8' });
+  if (near) {
+    params.set('lat', String(near.lat)); params.set('lon', String(near.lng));
+    if (local) params.set('bbox', [near.lng - 0.5, near.lat - 0.5, near.lng + 0.5, near.lat + 0.5].join(','));
+  }
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 6000);
+  signal?.addEventListener('abort', () => ctrl.abort());
+  try {
+    const res = await fetch(`https://photon.komoot.io/api/?${params}`, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(`Photon ${res.status}`);
+    const json = await res.json();
+    const seen = new Set<string>();
+    const places: Place[] = [];
+    for (const f of json.features ?? []) {
+      const p = f.properties ?? {};
+      const [lng, lat] = f.geometry?.coordinates ?? [];
+      if (typeof lat !== 'number' || typeof lng !== 'number') continue;
+      const label = [p.name, p.street, p.district ?? p.locality, p.city ?? p.county]
+        .filter((v: string | undefined, i: number, all: (string | undefined)[]) => v && all.indexOf(v) === i).join(', ');
+      if (!label || seen.has(label)) continue;
+      seen.add(label);
+      places.push({ lat, lng, label });
+    }
+    if (!near || local) return places.slice(0, 6);
+    return places.filter((p) => km(near, p) <= 300).sort((a, b) => km(near, a) - km(near, b)).slice(0, 6);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// The phone's own geocoder: good for full addresses, not partial words, so it's only the fallback.
+async function deviceGeocode(query: string, near?: Coords | null): Promise<Place[]> {
+  const hits = (await Location.geocodeAsync(query).catch(() => [])).slice(0, 5).map((h) => ({ lat: h.latitude, lng: h.longitude }));
   if (near) hits.sort((a, b) => km(near, a) - km(near, b));
   return Promise.all(hits.map(async (h) => {
     const [a] = await Location.reverseGeocodeAsync({ latitude: h.lat, longitude: h.lng }).catch(() => []);

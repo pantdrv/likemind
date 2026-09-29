@@ -1,17 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Modal, ScrollView, Text, TextInput, View, Pressable } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { quickReplies } from '../lib/planCopy';
 import { Button, H1, Input, Muted } from './ui';
-import { c, font, border, shadow } from '../lib/theme';
+import { c, font, border } from '../lib/theme';
 import { friendlyError, safe, showError } from '../lib/errors';
 
 const REACTIONS = ['👍', '🔥', '😂', '❤️', '😮'];
-const QUICK = ['On my way 🏃', 'Running 10 min late ⏰', "I'm here 👋", "Can't make it 😔"];
 
-// Group chat for a plan (with quick replies, reactions and polls) or a crew (plain messages).
-export default function Chat({ requestId, crewId, meId, activitySlug, categorySlug }:
-  { requestId?: string; crewId?: string; meId: string; activitySlug?: string; categorySlug?: string }) {
+// Group chat for a plan (with reactions and polls) or a crew (plain messages).
+export default function Chat({ requestId, crewId, meId }: { requestId?: string; crewId?: string; meId: string }) {
   const rich = !!requestId;
   const table = rich ? 'messages' : 'crew_messages';
   const key = rich ? 'request_id' : 'crew_id';
@@ -29,23 +26,32 @@ export default function Chat({ requestId, crewId, meId, activitySlug, categorySl
   // Newest 200, shown oldest first. A failed refresh keeps the messages already on screen.
   const load = useCallback(async () => {
     const cols = rich
-      ? 'id, body, kind, poll_options, sender_id, created_at, profiles(full_name), message_reactions(emoji, user_id), poll_votes(option, user_id)'
-      : 'id, body, sender_id, created_at, profiles(full_name)';
+      // "!…_fkey" names the sender link: reactions and poll votes also connect messages to profiles, and without the
+      // hint Supabase can't tell which one is meant and the whole chat fails to load.
+      ? 'id, body, kind, poll_options, sender_id, created_at, profiles!messages_sender_id_fkey(full_name), message_reactions!message_reactions_message_id_fkey(emoji, user_id), poll_votes!poll_votes_message_id_fkey(option, user_id)'
+      : 'id, body, sender_id, created_at, profiles!crew_messages_sender_id_fkey(full_name)';
     const { data, error } = await safe(supabase.from(table).select(cols).eq(key, id).order('created_at', { ascending: false }).limit(200));
+    if (error && __DEV__) console.warn('chat load failed', error);
     setLoadError(error ? friendlyError(error) : null);
     if (!error) setMsgs(((data ?? []) as any[]).reverse());
   }, [rich, table, key, id]);
 
   useEffect(() => {
     load();
-    let ch = supabase.channel(`chat:${id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table, filter: `${key}=eq.${id}` }, load);
-    // Reactions and votes have no plan column to filter on; row-level security limits them to this user's plans.
+    // Several changes in a row (e.g. a few people reacting) cause one reload, not one each.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const reload = () => { clearTimeout(timer); timer = setTimeout(load, 300); };
+    // Unique name: a plan's chat can be open twice (e.g. opened again from a notification), and Supabase would
+    // otherwise hand back the already-subscribed channel, which can't take new listeners.
+    let ch = supabase.channel(`chat:${id}:${Math.random().toString(36).slice(2)}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table, filter: `${key}=eq.${id}` }, reload);
+    // Only this plan's reactions and votes (needs 014_performance.sql). Removing a reaction isn't sent live
+    // (Supabase can't filter deletes); it shows on the next reload.
     if (rich) ch = ch
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'poll_votes' }, load);
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'message_reactions', filter: `request_id=eq.${id}` }, reload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'poll_votes', filter: `request_id=eq.${id}` }, reload);
     ch.subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { clearTimeout(timer); supabase.removeChannel(ch); };
   }, [id, table, key, rich, load]);
 
   const send = async (raw = text) => {
@@ -76,15 +82,15 @@ export default function Chat({ requestId, crewId, meId, activitySlug, categorySl
   };
 
   return (
-    <View style={{ backgroundColor: c.card, borderRadius: 20, ...border, padding: 12 }}>
-      <ScrollView ref={list} style={{ height: 280 }} nestedScrollEnabled keyboardShouldPersistTaps="handled"
+    <View style={{ backgroundColor: c.card, borderRadius: 18, ...border, padding: 8 }}>
+      <ScrollView ref={list} style={{ height: 130 }} nestedScrollEnabled keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => list.current?.scrollToEnd({ animated: false })}>
         {loadError && (
           <Pressable onPress={load} style={{ backgroundColor: c.pink, borderRadius: 12, borderWidth: 1, borderColor: c.line, padding: 10, marginBottom: 10 }}>
             <Text style={{ fontFamily: font.bold, color: c.ink, fontSize: 13 }}>😵‍💫 {loadError} Tap to retry.</Text>
           </Pressable>
         )}
-        {msgs.length === 0 && !loadError && <Text style={{ color: c.muted, fontFamily: font.medium, textAlign: 'center', marginTop: 110 }}>No messages yet. Say hi 👋 and lock in the plan.</Text>}
+        {msgs.length === 0 && !loadError && <Text style={{ color: c.muted, fontFamily: font.medium, textAlign: 'center', marginTop: 44 }}>No messages yet. Say hi 👋 and lock in the plan.</Text>}
         {msgs.map((item) => {
           // Notices written by the server, e.g. "👋 Aarav can't make it", "🗓 Plan moved to Sat 7 PM".
           if (item.kind === 'system') return (
@@ -121,19 +127,20 @@ export default function Chat({ requestId, crewId, meId, activitySlug, categorySl
           );
         })}
       </ScrollView>
-      {rich && (<>
-        {/* Suggestions fit the activity, e.g. "Booked seats?" for a movie. */}
-        <Text style={{ fontFamily: font.bold, fontSize: 11, color: c.muted, marginTop: 8 }}>Not sure what to say? Tap one</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ marginTop: 6 }}>
-          <Pressable onPress={() => setPollOpen(true)} style={quick}><Text style={quickTxt}>📊 Poll</Text></Pressable>
-          {[...quickReplies(activitySlug, categorySlug), ...QUICK].map((q) => <Pressable key={q} onPress={() => send(q)} style={quick}><Text style={quickTxt}>{q}</Text></Pressable>)}
-        </ScrollView>
-      </>)}
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-        <TextInput value={text} onChangeText={setText} placeholder={rich ? 'Message the squad (long-press to react)' : 'Message the crew'} placeholderTextColor={c.muted}
-          style={{ flex: 1, ...border, backgroundColor: c.bg, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9, color: c.ink, fontFamily: font.medium }} keyboardAppearance="dark" />
-        <Pressable onPress={() => send()} disabled={sending} style={{ opacity: sending ? 0.5 : 1, marginLeft: 8, backgroundColor: c.primary, borderRadius: 20, ...border, paddingHorizontal: 16, paddingVertical: 10 }}>
-          <Text style={{ color: c.onNeon, fontFamily: font.black }}>Send ➤</Text>
+      {/* One box: poll button (plan chats), the message, and send. */}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 8, backgroundColor: c.bg, borderRadius: 22, ...border, paddingLeft: rich ? 2 : 10, paddingRight: 3, paddingVertical: 3 }}>
+        {rich && (
+          <Pressable onPress={() => setPollOpen(true)} hitSlop={6} accessibilityLabel="Create a poll"
+            style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 16 }}>📊</Text>
+          </Pressable>
+        )}
+        <TextInput value={text} onChangeText={setText} placeholder={rich ? 'Message the squad (long-press to react)' : 'Message the crew…'} placeholderTextColor={c.muted}
+          multiline maxLength={1000} keyboardAppearance={c.scheme}
+          style={{ flex: 1, maxHeight: 110, paddingHorizontal: 6, paddingTop: 6, paddingBottom: 6, color: c.ink, fontFamily: font.medium, fontSize: 14 }} />
+        <Pressable onPress={() => send()} disabled={sending || !text.trim()} accessibilityLabel="Send"
+          style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', opacity: sending || !text.trim() ? 0.4 : 1 }}>
+          <Text style={{ color: c.onNeon, fontFamily: font.black, fontSize: 16 }}>➤</Text>
         </Pressable>
       </View>
       {rich && <PollComposer open={pollOpen} onClose={() => setPollOpen(false)}
@@ -195,6 +202,3 @@ function PollComposer({ open, onClose, onCreate }: { open: boolean; onClose: () 
     </Modal>
   );
 }
-
-const quick = { borderRadius: 999, borderWidth: 1, borderColor: c.line, paddingHorizontal: 10, paddingVertical: 5, marginRight: 6, backgroundColor: c.bg };
-const quickTxt = { fontFamily: font.semi, fontSize: 13, color: c.ink };

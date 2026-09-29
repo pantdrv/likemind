@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Button } from '../components/ui';
 import { friendlyError } from '../lib/errors';
 import { AuthProvider, useAuth } from '../lib/auth';
+import { ThemeProvider } from '../lib/themeMode';
 import { Notifications, registerForPush } from '../lib/notifications';
 import { syncAlertArea } from '../lib/alerts';
 import { useFonts, BricolageGrotesque_400Regular, BricolageGrotesque_500Medium, BricolageGrotesque_600SemiBold, BricolageGrotesque_700Bold, BricolageGrotesque_800ExtraBold } from '@expo-google-fonts/bricolage-grotesque';
@@ -75,8 +76,10 @@ export default function Root() {
   if (!fontsLoaded) return null;
   return (
     <AuthProvider>
-      <StatusBar style="light" />
-      <Gate />
+      <ThemeProvider>
+        <StatusBar style={c.scheme === 'dark' ? 'light' : 'dark'} />
+        <Gate />
+      </ThemeProvider>
     </AuthProvider>
   );
 }

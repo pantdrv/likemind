@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "717056496649",
+    "project_id": "likemind-55f4e",
+    "storage_bucket": "likemind-55f4e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:717056496649:android:9c7f813a6ddaa53bee94d8",
+        "android_client_info": {
+          "package_name": "com.pantdrv.likemind"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDSSYtT9rwTMG4krjY1GHav4nQIe7Nj-FE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

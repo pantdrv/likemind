@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Modal, ScrollView, View } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { getCoords } from '../lib/location';
+import { announceFreeChanged } from '../lib/freeNow';
 import { Button, Chip, H1, Input, Label, Muted } from './ui';
 import { c } from '../lib/theme';
 import { safe, showError } from '../lib/errors';
@@ -9,13 +10,13 @@ import { safe, showError } from '../lib/errors';
 const HOURS = [1, 2, 3, 4];
 
 // "I'm free": tell nearby people you're up for something for the next few hours.
-export default function FreeSheet({ open, onClose, onSaved, activities, defaults }:
-  { open: boolean; onClose: () => void; onSaved: () => void; activities: { slug: string; name: string; icon: string }[]; defaults: string[] }) {
+export default function FreeSheet({ open, onClose, onSaved, activities }:
+  { open: boolean; onClose: () => void; onSaved: () => void; activities: { slug: string; name: string; icon: string }[] }) {
   const [hours, setHours] = useState(2);
-  const [picked, setPicked] = useState<string[]>(defaults);
+  const [picked, setPicked] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (open) setPicked(defaults); }, [open, defaults]);
+  useEffect(() => { if (open) setPicked([]); }, [open]);  // starts clean every time
 
   const save = async () => {
     setBusy(true);
@@ -24,6 +25,7 @@ export default function FreeSheet({ open, onClose, onSaved, activities, defaults
     const { error } = await safe(supabase.rpc('set_free', { p_hours: hours, p_slugs: picked, p_note: note, p_lat: pos.lat, p_lng: pos.lng }));
     setBusy(false);
     if (error) return showError('Could not save', error);
+    announceFreeChanged();  // other phones refresh "Free right now"
     onSaved();
     onClose();
   };

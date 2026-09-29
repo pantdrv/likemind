@@ -7,10 +7,11 @@ import GoogleButton from '../../components/GoogleButton';
 import { c, font, border, shadow } from '../../lib/theme';
 import { safe, showError } from '../../lib/errors';
 
-const STICKERS = [
-  { e: '🏸', bg: c.lime, rot: '-10deg' },
-  { e: '🎮', bg: c.lilac, rot: '8deg' },
-  { e: '🛍️', bg: c.pink, rot: '-4deg' },
+// A function so the colours follow the Day/Night look.
+const stickers = () => [
+  { e: '🏸', bg: c.lime },
+  { e: '🎮', bg: c.lilac },
+  { e: '🛍️', bg: c.pink },
 ];
 
 export default function Login() {
@@ -31,7 +32,7 @@ export default function Login() {
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 84 }} keyboardShouldPersistTaps="handled">
         <View style={{ flexDirection: 'row', marginBottom: 22 }}>
-          {STICKERS.map((s) => (
+          {stickers().map((s) => (
             <View key={s.e} style={{ width: 58, height: 58, borderRadius: 18, backgroundColor: s.bg, alignItems: 'center', justifyContent: 'center', marginRight: 10, ...border, ...shadow(3) }}>
               <Text style={{ fontSize: 28 }}>{s.e}</Text>
             </View>

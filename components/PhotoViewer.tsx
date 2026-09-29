@@ -1,7 +1,8 @@
-import { Image, Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from './ui';
 import { c, font } from '../lib/theme';
+import { Image as CachedImage } from 'expo-image';
 
 // Full-screen photo with an optional caption and action buttons (e.g. "Make main", "Delete").
 export default function PhotoViewer({ uri, caption, actions = [], onClose }:
@@ -12,7 +13,7 @@ export default function PhotoViewer({ uri, caption, actions = [], onClose }:
         <Pressable onPress={onClose} hitSlop={12} style={{ alignSelf: 'flex-end', padding: 16 }}>
           <Text style={{ color: '#fff', fontSize: 28, fontFamily: font.black }}>✕</Text>
         </Pressable>
-        {uri && <Image source={{ uri }} style={{ flex: 1 }} resizeMode="contain" />}
+        {uri && <CachedImage source={{ uri }} style={{ flex: 1 }} contentFit="contain" cachePolicy="disk" />}
         {caption ? <Text style={{ color: '#fff', fontFamily: font.semi, fontSize: 16, textAlign: 'center', padding: 16 }}>{caption}</Text> : null}
         {actions.length > 0 && (
           <View style={{ flexDirection: 'row', gap: 10, padding: 16 }}>
@@ -26,4 +27,5 @@ export default function PhotoViewer({ uri, caption, actions = [], onClose }:
   );
 }
 
-export const photoTile = { borderRadius: 16, borderWidth: 1, borderColor: c.line, overflow: 'hidden' as const, backgroundColor: c.card };
+// Getters so the tile follows the Day/Night switch.
+export const photoTile = { borderRadius: 16, borderWidth: 1, get borderColor() { return c.line; }, overflow: 'hidden' as const, get backgroundColor() { return c.card; } };

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { MAX, photoUrl, pickImages, uploadPhoto } from '../lib/photos';
 import PhotoViewer, { photoTile } from './PhotoViewer';
 import { Button, Muted } from './ui';
 import { friendlyError, safe, showError } from '../lib/errors';
 import { c } from '../lib/theme';
+import Thumb from './Thumb';
 
-// Shared photo album for a plan. Each photo also shows up as a moment on the uploader's profile.
+// Shared photo album for a plan.
 export default function PlanAlbum({ requestId, activityId, meId }: { requestId: string; activityId: number; meId: string }) {
   const [photos, setPhotos] = useState<any[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -28,7 +29,7 @@ export default function PlanAlbum({ requestId, activityId, meId }: { requestId: 
       setBusy(true);
       for (const img of imgs) await uploadPhoto(meId, img, 'moment', { activity_id: activityId, request_id: requestId });
     } catch (e: any) {
-      if (String(e?.message ?? '').includes('up to')) Alert.alert('Could not add photos', `You can have up to ${MAX.moment} moments. Delete some in Me first.`);
+      if (String(e?.message ?? '').includes('up to')) Alert.alert('Could not add photos', `You've reached the limit of ${MAX.moment} album photos.`);
       else showError('Could not add photos', e);
     }
     setBusy(false);
@@ -43,7 +44,7 @@ export default function PlanAlbum({ requestId, activityId, meId }: { requestId: 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
           {photos.map((p) => (
             <Pressable key={p.id} onPress={() => setViewing(p)} style={[photoTile, { width: '31.5%', aspectRatio: 1 }]}>
-              <Image source={{ uri: photoUrl(p.path) }} style={{ flex: 1 }} />
+              <Thumb path={p.path} />
             </Pressable>
           ))}
         </View>

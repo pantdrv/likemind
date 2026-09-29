@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { photoUrl } from '../../lib/photos';
@@ -7,6 +7,7 @@ import { Button, Card, Empty, ErrorState, H1, H2, Muted, Tag } from '../../compo
 import { friendlyError, openUrl, safe } from '../../lib/errors';
 import PhotoViewer, { photoTile } from '../../components/PhotoViewer';
 import { c, font, border, shadow, fmtDate, planTitle, tileColor, spotsLabel } from '../../lib/theme';
+import Thumb from '../../components/Thumb';
 
 // A venue (grouped by name): how busy it is, what people do there, open plans and photos from past plans.
 export default function Venue() {
@@ -55,7 +56,7 @@ export default function Venue() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {v.photos.map((p: any) => (
             <Pressable key={p.id} onPress={() => setViewing(p)} style={[photoTile, { width: '31.5%', aspectRatio: 1 }]}>
-              <Image source={{ uri: photoUrl(p.path) }} style={{ flex: 1 }} />
+              <Thumb path={p.path} />
             </Pressable>
           ))}
         </View>
